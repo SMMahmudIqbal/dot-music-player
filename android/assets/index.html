@@ -117,17 +117,41 @@
       <!-- Playback Controls Deck -->
       <div class="control-deck">
         <div class="controls-main-row">
-          <button class="btn btn-icon" id="btn-shuffle" title="Shuffle (S)" aria-label="Toggle Shuffle">⇄</button>
-          <button class="btn btn-icon" id="btn-prev" title="Previous Track (J)" aria-label="Previous Track">⏮</button>
-          <button class="btn btn-primary btn-icon-lg" id="btn-play-pause" title="Play/Pause (Space)" aria-label="Play or Pause">▶</button>
-          <button class="btn btn-icon" id="btn-next" title="Next Track (K)" aria-label="Next Track">⏭</button>
-          <button class="btn btn-icon" id="btn-repeat" title="Repeat (R)" aria-label="Toggle Repeat">🔁</button>
+          <button class="btn btn-icon" id="btn-shuffle" title="Shuffle (S)" aria-label="Toggle Shuffle">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>
+            </svg>
+          </button>
+          <button class="btn btn-icon" id="btn-prev" title="Previous Track (J)" aria-label="Previous Track">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="4" y="5" width="2.5" height="14" rx="0.8"/><polygon points="20,5 9,12 20,19"/>
+            </svg>
+          </button>
+          <button class="btn btn-primary btn-icon-lg" id="btn-play-pause" title="Play/Pause (Space)" aria-label="Play or Pause">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="7,4 20,12 7,20"/>
+            </svg>
+          </button>
+          <button class="btn btn-icon" id="btn-next" title="Next Track (K)" aria-label="Next Track">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="4,5 15,12 4,19"/><rect x="17.5" y="5" width="2.5" height="14" rx="0.8"/>
+            </svg>
+          </button>
+          <button class="btn btn-icon" id="btn-repeat" title="Repeat (R)" aria-label="Toggle Repeat">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+            </svg>
+          </button>
         </div>
 
         <div class="controls-sub-row">
           <button class="btn" id="btn-speed" style="font-size: 10px; padding: 4px 8px;" title="Playback Speed">1.0x</button>
           <div class="volume-wrap">
-            <button class="btn btn-icon" id="btn-mute" style="border: none; background: transparent; font-size: 13px;" aria-label="Toggle Mute">🔊</button>
+            <button class="btn btn-icon" id="btn-mute" style="border: none; background: transparent;" aria-label="Toggle Mute">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            </button>
             <input type="range" class="vol-slider" id="vol-slider" min="0" max="100" value="85" aria-label="Volume Slider">
           </div>
           <button class="btn" id="btn-demo-synth" style="font-size: 10px; padding: 4px 8px;">DEMO SYNTH</button>
@@ -170,6 +194,7 @@
         <div class="library-tabs">
           <button class="tab-btn active" data-filter="all">ALL</button>
           <button class="tab-btn" data-filter="favorites">FAV</button>
+          <button class="tab-btn" data-filter="folders">FOLDERS</button>
         </div>
         <select class="sort-select" id="sort-select" aria-label="Sort library tracks">
           <option value="title-asc">SORT: TITLE (A-Z)</option>
@@ -279,6 +304,61 @@
         </div>
       </div>
 
+      <!-- Dynamic Bass Boost Engine -->
+      <div class="tuning-card bass-boost-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 600; letter-spacing: 1px;">DYNAMIC BASS BOOST</div>
+            <div style="font-size: 9px; color: var(--text-muted);">SUB-BASS RESONANT LOW-SHELF (80Hz)</div>
+          </div>
+          <button class="btn" id="btn-bass-boost-toggle" style="font-size: 10px; padding: 4px 10px;">OFF</button>
+        </div>
+        <div class="bass-boost-slider-wrap" style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 10px; color: var(--text-muted);">GAIN</span>
+          <input type="range" class="vol-slider" id="bass-boost-slider" min="0" max="15" step="1" value="8" aria-label="Bass boost gain" style="flex: 1;">
+          <span id="bass-boost-val" style="font-family: var(--font-ndot); font-size: 11px; min-width: 38px; text-align: right; color: var(--accent-red);">+8dB</span>
+        </div>
+      </div>
+
+      <!-- Hi-Res Audio Stream Inspector & Telemetry -->
+      <div class="tuning-card telemetry-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">HI-RES STREAM INSPECTOR</span>
+          <span class="telemetry-live-badge" style="font-family: var(--font-ndot); font-size: 9px; color: var(--accent-red);">[·] LIVE</span>
+        </div>
+        <div class="telemetry-grid">
+          <div class="telemetry-item">
+            <span class="telemetry-lbl">SAMPLE RATE</span>
+            <span class="telemetry-val" id="telem-sample-rate">48,000 HZ</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-lbl">CHANNELS</span>
+            <span class="telemetry-val" id="telem-channels">2 (STEREO)</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-lbl">ENGINE STATE</span>
+            <span class="telemetry-val" id="telem-state">STANDBY</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-lbl">OUTPUT BUFFER</span>
+            <span class="telemetry-val" id="telem-buffer">HARDWARE DMA</span>
+          </div>
+        </div>
+        <!-- Dual Channel Peak Meter Bars -->
+        <div class="peak-meter-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div class="peak-meter-row">
+            <span class="peak-ch-label">CH-L</span>
+            <div class="peak-meter-track"><div class="peak-meter-bar" id="peak-bar-l"></div></div>
+            <span class="peak-db-label" id="peak-db-l">-INF</span>
+          </div>
+          <div class="peak-meter-row">
+            <span class="peak-ch-label">CH-R</span>
+            <div class="peak-meter-track"><div class="peak-meter-bar" id="peak-bar-r"></div></div>
+            <span class="peak-db-label" id="peak-db-r">-INF</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Sleep Timer Widget -->
       <div class="widget-row">
         <div>
@@ -348,21 +428,28 @@
     <div class="modal-card">
       <div class="modal-title-bar">
         <span>[·] CONTROLS MATRIX</span>
-        <button class="modal-close-btn" id="btn-shortcuts-close" aria-label="Close modal">✕</button>
+        <button class="modal-close-btn" id="btn-shortcuts-close" aria-label="Close modal">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
         <div><strong style="color: var(--accent-red);">SWIPE/TABS</strong> : Bottom Nav</div>
         <div><strong style="color: var(--accent-red);">SPACE</strong> : Play / Pause</div>
         <div><strong style="color: var(--accent-red);">J / K</strong> : Previous / Next</div>
-        <div><strong style="color: var(--accent-red);">← / →</strong> : Seek 5s</div>
+        <div><strong style="color: var(--accent-red);">LEFT / RIGHT</strong> : Seek 5s</div>
         <div><strong style="color: var(--accent-red);">V</strong> : Visualizer Mode</div>
         <div><strong style="color: var(--accent-red);">S / R</strong> : Shuffle / Repeat</div>
       </div>
 
       <div style="display: flex; justify-content: center; margin-top: 6px;">
-        <a href="DotMusicPlayer.apk" download="DotMusicPlayer.apk" class="btn btn-accent" style="text-decoration: none; width: 100%;">
-          ⤓ DOWNLOAD ANDROID APK (71 KB)
+        <a href="DotMusicPlayer.apk" download="DotMusicPlayer.apk" class="btn btn-accent" style="text-decoration: none; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          DOWNLOAD ANDROID APK (71 KB)
         </a>
       </div>
 

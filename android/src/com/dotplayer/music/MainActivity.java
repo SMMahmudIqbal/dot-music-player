@@ -320,17 +320,27 @@ public class MainActivity extends Activity {
                         format = filePath.substring(filePath.lastIndexOf('.') + 1).toUpperCase();
                     }
 
+                    String folderName = "Internal Storage";
+                    if (filePath != null && filePath.contains("/")) {
+                        int lastSlash = filePath.lastIndexOf('/');
+                        if (lastSlash > 0) {
+                            int prevSlash = filePath.lastIndexOf('/', lastSlash - 1);
+                            folderName = prevSlash != -1 ? filePath.substring(prevSlash + 1, lastSlash) : filePath.substring(0, lastSlash);
+                        }
+                    }
+
                     JSONObject trackObj = new JSONObject();
                     trackObj.put("id", "android_" + id);
                     trackObj.put("mediaId", id);
                     trackObj.put("title", title);
                     trackObj.put("artist", artist);
                     trackObj.put("album", album);
+                    trackObj.put("folder", folderName);
                     trackObj.put("duration", durationMs / 1000);
                     trackObj.put("size", size);
                     trackObj.put("format", format);
                     trackObj.put("url", "http://127.0.0.1:" + mServerPort + "/audio?id=" + id);
-                    trackObj.put("picture", "http://127.0.0.1:" + mServerPort + "/art?id=" + albumId);
+                    trackObj.put("picture", "http://127.0.0.1:" + mServerPort + "/art?id=" + albumId + "&trackId=" + id);
                     trackObj.put("favorite", false);
 
                     trackArray.put(trackObj);
@@ -544,13 +554,21 @@ public class MainActivity extends Activity {
                     }
                 } else if (path.startsWith("/art?")) {
                     long albumId = -1;
+                    long trackId = -1;
                     int qIdx = path.indexOf("id=");
                     if (qIdx != -1) {
                         int endIdx = path.indexOf('&', qIdx);
                         String idStr = endIdx == -1 ? path.substring(qIdx + 3) : path.substring(qIdx + 3, endIdx);
                         try { albumId = Long.parseLong(idStr); } catch (Exception ignored) {}
                     }
+                    int tIdx = path.indexOf("trackId=");
+                    if (tIdx != -1) {
+                        int endIdx = path.indexOf('&', tIdx);
+                        String idStr = endIdx == -1 ? path.substring(tIdx + 8) : path.substring(tIdx + 8, endIdx);
+                        try { trackId = Long.parseLong(idStr); } catch (Exception ignored) {}
+                    }
 
+                    byte[] imgBytes = null;
                     if (albumId != -1) {
                         Uri artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), albumId);
                         try {
@@ -561,27 +579,40 @@ public class MainActivity extends Activity {
                                 int r;
                                 while ((r = is.read(buf)) != -1) baos.write(buf, 0, r);
                                 is.close();
-                                byte[] imgBytes = baos.toByteArray();
-
-                                PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
-                                pw.print("HTTP/1.1 200 OK\r\n");
-                                pw.print("Content-Type: image/jpeg\r\n");
-                                pw.print("Content-Length: " + imgBytes.length + "\r\n");
-                                pw.print("Access-Control-Allow-Origin: *\r\n");
-                                pw.print("Connection: close\r\n\r\n");
-                                pw.flush();
-                                out.write(imgBytes);
-                                out.flush();
-                            } else {
-                                PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
-                                pw.print("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
-                                pw.flush();
+                                imgBytes = baos.toByteArray();
                             }
-                        } catch (Exception e) {
-                            PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
-                            pw.print("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
-                            pw.flush();
-                        }
+                        } catch (Exception ignored) {}
+                    }
+
+                    // Fallback: extract embedded album art from track file descriptor
+                    if ((imgBytes == null || imgBytes.length == 0) && trackId != -1) {
+                        try {
+                            Uri trackUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, trackId);
+                            ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(trackUri, "r");
+                            if (pfd != null) {
+                                android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+                                mmr.setDataSource(pfd.getFileDescriptor());
+                                imgBytes = mmr.getEmbeddedPicture();
+                                mmr.release();
+                                pfd.close();
+                            }
+                        } catch (Exception ignored) {}
+                    }
+
+                    if (imgBytes != null && imgBytes.length > 0) {
+                        PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                        pw.print("HTTP/1.1 200 OK\r\n");
+                        pw.print("Content-Type: image/jpeg\r\n");
+                        pw.print("Content-Length: " + imgBytes.length + "\r\n");
+                        pw.print("Access-Control-Allow-Origin: *\r\n");
+                        pw.print("Connection: close\r\n\r\n");
+                        pw.flush();
+                        out.write(imgBytes);
+                        out.flush();
+                    } else {
+                        PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                        pw.print("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
+                        pw.flush();
                     }
                 }
             } catch (Exception ignored) {

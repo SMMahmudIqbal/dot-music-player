@@ -80,6 +80,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     presetPills: document.querySelectorAll('.preset-pill'),
     eqSliders: document.querySelectorAll('.eq-slider-vertical'),
     panSlider: document.getElementById('pan-slider'),
+    btnBassBoostToggle: document.getElementById('btn-bass-boost-toggle'),
+    bassBoostSlider: document.getElementById('bass-boost-slider'),
+    bassBoostVal: document.getElementById('bass-boost-val'),
+    telemSampleRate: document.getElementById('telem-sample-rate'),
+    telemChannels: document.getElementById('telem-channels'),
+    telemState: document.getElementById('telem-state'),
+    telemBuffer: document.getElementById('telem-buffer'),
+    peakBarL: document.getElementById('peak-bar-l'),
+    peakBarR: document.getElementById('peak-bar-r'),
+    peakDbL: document.getElementById('peak-db-l'),
+    peakDbR: document.getElementById('peak-db-r'),
     sleepTimerSelect: document.getElementById('sleep-timer-select'),
     sleepTimerBadge: document.getElementById('sleep-timer-badge'),
     // Modals & Toasts
@@ -92,6 +103,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnShortcuts: document.getElementById('btn-shortcuts'),
     btnShortcutsClose: document.getElementById('btn-shortcuts-close'),
     toastNotice: document.getElementById('toast-notice')
+  };
+
+  const SVG_ICONS = {
+    play: `<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor"><polygon points="7,4 20,12 7,20"/></svg>`,
+    pause: `<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4.5" height="16" rx="1"/><rect x="14.5" y="4" width="4.5" height="16" rx="1"/></svg>`,
+    volume: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`,
+    volumeMute: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`,
+    repeat: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>`,
+    repeatOne: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><circle cx="12" cy="12" r="2.2" fill="var(--accent-red)" stroke="none"/></svg>`,
+    star: `<svg class="icon-svg star-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    folder: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
   };
 
   // 1. Initialize Storage & Visualizer
@@ -225,6 +247,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     return list;
   }
 
+  function getFolderGroups() {
+    const map = new Map();
+    state.library.forEach((track) => {
+      let folder = track.folder;
+      if (!folder && track.filePath) {
+        const parts = track.filePath.split(/[/\\]/);
+        if (parts.length > 1) {
+          folder = parts[parts.length - 2];
+        }
+      }
+      if (!folder) {
+        folder = track.album && track.album !== 'Local Audio' ? track.album : 'Internal Storage';
+      }
+      if (!map.has(folder)) {
+        map.set(folder, []);
+      }
+      map.get(folder).push(track);
+    });
+    return Array.from(map.entries()).map(([name, tracks]) => ({ name, tracks }));
+  }
+
   function renderTrackList() {
     if (!el.trackList) return;
 
@@ -241,6 +284,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
       const emptyBtn = el.trackList.querySelector('#btn-empty-scan');
       if (emptyBtn) emptyBtn.addEventListener('click', handleAutoScan);
+      return;
+    }
+
+    if (state.currentFilter === 'folders') {
+      const groups = getFolderGroups();
+      el.trackList.innerHTML = '';
+      if (groups.length === 0) {
+        el.trackList.innerHTML = `
+          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+            NO FOLDERS DETECTED
+          </div>
+        `;
+        return;
+      }
+
+      groups.forEach((g) => {
+        const card = document.createElement('div');
+        card.className = 'folder-card';
+        card.innerHTML = `
+          <div class="folder-card-left">
+            <div class="folder-icon-wrap">${SVG_ICONS.folder}</div>
+            <div>
+              <div class="folder-name">${g.name}</div>
+              <div class="folder-count">${g.tracks.length} TRACKS // ${formatBytes(g.tracks.reduce((acc, t) => acc + (t.size || 0), 0))}</div>
+            </div>
+          </div>
+          <button class="btn" style="padding: 4px 10px; font-size: 9px;">PLAY</button>
+        `;
+        card.addEventListener('click', () => {
+          if (g.tracks.length > 0) {
+            playTrackById(g.tracks[0].id);
+          }
+        });
+        el.trackList.appendChild(card);
+      });
       return;
     }
 
@@ -278,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="track-meta-right">
           <span>${formatBytes(track.size)}</span>
           <button class="fav-star-btn ${track.favorite ? 'active' : ''}" data-id="${track.id}" aria-label="Toggle favorite">
-            ${track.favorite ? '★' : '☆'}
+            ${SVG_ICONS.star}
           </button>
         </div>
       `;
@@ -301,7 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const track = state.library.find(t => t.id === trackId);
     if (track) track.favorite = isFav;
     renderTrackList();
-    showToast(isFav ? 'ADDED TO FAVORITES [★]' : 'REMOVED FROM FAVORITES');
+    showToast(isFav ? '[·] ADDED TO FAVORITES' : 'REMOVED FROM FAVORITES');
   }
 
   // 4. Playback Logic
@@ -442,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   audioEngine.onPlayStateChange = (isPlaying) => {
     if (el.btnPlayPause) {
-      el.btnPlayPause.textContent = isPlaying ? '⏸' : '▶';
+      el.btnPlayPause.innerHTML = isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
       el.btnPlayPause.classList.toggle('playing', isPlaying);
     }
     if (el.albumArt) {
@@ -497,7 +575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const vol = el.volSlider.value / 100;
       audioEngine.setVolume(vol);
       if (el.btnMute) {
-        el.btnMute.textContent = vol === 0 ? '🔇' : '🔊';
+        el.btnMute.innerHTML = vol === 0 ? SVG_ICONS.volumeMute : SVG_ICONS.volume;
       }
     });
   }
@@ -508,12 +586,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.volSlider.dataset.prevVol = el.volSlider.value;
         audioEngine.setVolume(0);
         el.volSlider.value = 0;
-        el.btnMute.textContent = '🔇';
+        el.btnMute.innerHTML = SVG_ICONS.volumeMute;
       } else {
         const restore = el.volSlider.dataset.prevVol || 80;
         audioEngine.setVolume(restore / 100);
         el.volSlider.value = restore;
-        el.btnMute.textContent = '🔊';
+        el.btnMute.innerHTML = SVG_ICONS.volume;
       }
     });
   }
@@ -533,7 +611,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const modes = ['all', 'one', 'off'];
       const nextIdx = (modes.indexOf(state.repeatMode) + 1) % modes.length;
       state.repeatMode = modes[nextIdx];
-      el.btnRepeat.textContent = state.repeatMode === 'one' ? '🔂' : '🔁';
+      el.btnRepeat.innerHTML = state.repeatMode === 'one' ? SVG_ICONS.repeatOne : SVG_ICONS.repeat;
       el.btnRepeat.classList.toggle('btn-accent', state.repeatMode !== 'off');
       showToast(`REPEAT: ${state.repeatMode.toUpperCase()}`);
     });
@@ -835,6 +913,56 @@ document.addEventListener('DOMContentLoaded', async () => {
       audioEngine.setPanning(pan);
     });
   }
+
+  // Bass Boost Controls
+  if (el.btnBassBoostToggle) {
+    el.btnBassBoostToggle.addEventListener('click', () => {
+      triggerHaptic(15);
+      const isCurrentlyActive = audioEngine.bassBoostEnabled;
+      const willBeActive = !isCurrentlyActive;
+      const gain = el.bassBoostSlider ? parseFloat(el.bassBoostSlider.value) : 8;
+      audioEngine.setBassBoost(willBeActive, gain);
+      el.btnBassBoostToggle.textContent = willBeActive ? 'ON' : 'OFF';
+      el.btnBassBoostToggle.classList.toggle('bass-boost-active', willBeActive);
+      showToast(willBeActive ? `[·] BASS BOOST: ON (+${gain}dB)` : 'BASS BOOST: OFF');
+    });
+  }
+
+  if (el.bassBoostSlider) {
+    el.bassBoostSlider.addEventListener('input', () => {
+      const gain = parseFloat(el.bassBoostSlider.value);
+      if (el.bassBoostVal) el.bassBoostVal.textContent = `+${gain}dB`;
+      audioEngine.setBassBoostGain(gain);
+    });
+  }
+
+  // Hi-Res Audio Stream Inspector Telemetry
+  function updateTelemetry() {
+    if (!el.telemSampleRate) return;
+    const telem = audioEngine.getAudioTelemetry();
+    el.telemSampleRate.textContent = `${(telem.sampleRate || 48000).toLocaleString()} HZ`;
+    el.telemChannels.textContent = `${telem.channels} (STEREO)`;
+    el.telemState.textContent = telem.state;
+
+    const isPlaying = !audioEngine.audio.paused;
+    el.telemBuffer.textContent = isPlaying ? 'HARDWARE DMA' : 'STANDBY';
+
+    // Update Peak Bars
+    if (el.peakBarL) {
+      el.peakBarL.style.width = `${telem.peakL}%`;
+    }
+    if (el.peakBarR) {
+      el.peakBarR.style.width = `${telem.peakR}%`;
+    }
+    if (el.peakDbL) {
+      el.peakDbL.textContent = telem.peakL > 1 ? `${Math.round((telem.peakL / 100) * 12 - 12)}dB` : '-INF';
+    }
+    if (el.peakDbR) {
+      el.peakDbR.textContent = telem.peakR > 1 ? `${Math.round((telem.peakR / 100) * 12 - 12)}dB` : '-INF';
+    }
+  }
+
+  setInterval(updateTelemetry, 100);
 
   // 9. Sleep Timer
   if (el.sleepTimerSelect) {

@@ -207,6 +207,48 @@ body {
   }
 }
 
+/* Minimalist Vector SVG Icons */
+.icon-svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.15s ease, stroke 0.15s ease;
+}
+
+.btn-icon-lg .icon-svg {
+  width: 26px;
+  height: 26px;
+}
+
+.fav-star-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fav-star-btn:active {
+  transform: scale(0.85);
+}
+
+.fav-star-btn .icon-svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+
+.fav-star-btn.active .icon-svg {
+  color: var(--accent-red);
+  fill: var(--accent-red);
+  stroke: var(--accent-red);
+}
+
 /* ================= Mobile View Container ================= */
 .app-viewport {
   flex: 1;
@@ -913,6 +955,148 @@ body {
   padding: 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
+}
+
+/* Dynamic Bass Boost */
+.bass-boost-card {
+  border-left: 2px solid var(--accent-red);
+}
+
+.btn.bass-boost-active {
+  background: var(--accent-red);
+  color: #ffffff;
+  border-color: var(--accent-red);
+  box-shadow: 0 0 10px var(--accent-red-glow);
+}
+
+/* Audio Stream Telemetry Inspector */
+.telemetry-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.telemetry-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.telemetry-lbl {
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.telemetry-val {
+  font-family: var(--font-ndot);
+  font-size: 11px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+/* Peak VU Meter */
+.peak-meter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.peak-ch-label {
+  width: 28px;
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.peak-meter-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.peak-meter-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #888888 0%, #ffffff 75%, var(--accent-red) 100%);
+  border-radius: 3px;
+  transition: width 0.08s ease-out;
+}
+
+.peak-db-label {
+  width: 38px;
+  text-align: right;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-ndot);
+}
+
+/* Folder View Cards */
+.folder-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.folder-card:active {
+  background: var(--bg-tertiary);
+  transform: scale(0.98);
+}
+
+.folder-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.folder-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-red);
+  flex-shrink: 0;
+}
+
+.folder-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-count {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
 }
 
 /* ================= Bottom Mobile Navigation Bar ================= */

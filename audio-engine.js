@@ -18,6 +18,9 @@ class AudioEngine {
     this.splitter = null;
     this.panner = null;
     this.preamp = null;
+    this.bassBoostFilter = null;
+    this.bassBoostEnabled = false;
+    this.bassBoostGain = 8;
     this.compressor = null;
     this.masterGain = null;
 
@@ -102,14 +105,23 @@ class AudioEngine {
         return filter;
       });
 
+      // Dynamic Bass Boost Sub-bass Filter (80Hz resonant low-shelf)
+      this.bassBoostFilter = this.audioCtx.createBiquadFilter();
+      this.bassBoostFilter.type = 'lowshelf';
+      this.bassBoostFilter.frequency.value = 80;
+      this.bassBoostFilter.gain.value = this.bassBoostEnabled ? this.bassBoostGain : 0;
+
       // Splitter for stereo VU analysis
       this.splitter = this.audioCtx.createChannelSplitter(2);
 
       // Audio Graph Pipeline:
-      // Source -> Preamp -> [EQ Filters] -> Panner -> MasterGain -> Compressor -> Analyser -> Destination
+      // Source -> Preamp -> BassBoost -> [EQ Filters] -> Panner -> MasterGain -> Compressor -> Analyser -> Destination
       let currentNode = this.sourceNode;
       currentNode.connect(this.preamp);
       currentNode = this.preamp;
+
+      currentNode.connect(this.bassBoostFilter);
+      currentNode = this.bassBoostFilter;
 
       for (const filter of this.eqFilters) {
         currentNode.connect(filter);
@@ -266,6 +278,40 @@ class AudioEngine {
     if (this.eqFilters[index] && this.audioCtx) {
       this.eqFilters[index].gain.setValueAtTime(gainDB, this.audioCtx.currentTime);
     }
+  }
+
+  setBassBoost(enabled, gainDb) {
+    this.bassBoostEnabled = !!enabled;
+    if (gainDb !== undefined) this.bassBoostGain = Math.max(0, Math.min(15, gainDb));
+    if (this.bassBoostFilter && this.audioCtx) {
+      const targetGain = this.bassBoostEnabled ? this.bassBoostGain : 0;
+      this.bassBoostFilter.gain.setTargetAtTime(targetGain, this.audioCtx.currentTime, 0.02);
+    }
+  }
+
+  setBassBoostGain(gainDb) {
+    this.bassBoostGain = Math.max(0, Math.min(15, gainDb));
+    if (this.bassBoostEnabled && this.bassBoostFilter && this.audioCtx) {
+      this.bassBoostFilter.gain.setTargetAtTime(this.bassBoostGain, this.audioCtx.currentTime, 0.02);
+    }
+  }
+
+  getAudioTelemetry() {
+    const isCtx = !!(this.audioCtx && this.isInitialized);
+    const vu = this.getStereoVU();
+    return {
+      sampleRate: isCtx ? this.audioCtx.sampleRate : 48000,
+      state: isCtx ? this.audioCtx.state.toUpperCase() : 'STANDBY',
+      channels: 2,
+      currentTime: this.audio ? this.audio.currentTime : 0,
+      duration: this.audio && !isNaN(this.audio.duration) ? this.audio.duration : 0,
+      peakL: vu.peakL,
+      peakR: vu.peakR,
+      rmsL: vu.left,
+      rmsR: vu.right,
+      bassBoostActive: this.bassBoostEnabled,
+      bassBoostGain: this.bassBoostGain
+    };
   }
 
   setPreset(name) {
