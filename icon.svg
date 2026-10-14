@@ -1,29 +1,127 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <rect width="512" height="512" rx="110" fill="#070707"/>
-  <!-- Dot matrix background pattern -->
   <defs>
-    <pattern id="dotGrid" width="32" height="32" patternUnits="userSpaceOnUse">
-      <circle cx="16" cy="16" r="2.5" fill="#1c1c1c"/>
+    <!-- Background Dot Grid -->
+    <pattern id="bgGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1.5" fill="#181818"/>
     </pattern>
+
+    <!-- Red Glow Filter for the signature Nothing Accent -->
+    <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- White Phosphor Glow -->
+    <filter id="whiteGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="110" fill="url(#dotGrid)"/>
-  
-  <!-- Outer circular border -->
-  <circle cx="256" cy="256" r="180" fill="none" stroke="#252525" stroke-width="6" stroke-dasharray="8 8"/>
-  <circle cx="256" cy="256" r="140" fill="#101010" stroke="#333333" stroke-width="4"/>
 
-  <!-- Turntable / Dot Spindle -->
-  <circle cx="256" cy="256" r="70" fill="#161616" stroke="#444444" stroke-width="2"/>
-  <circle cx="256" cy="256" r="26" fill="#e52b2b"/>
-  <circle cx="256" cy="256" r="8" fill="#ffffff"/>
+  <!-- Deep Obsidian Background -->
+  <rect width="512" height="512" rx="112" fill="#050505"/>
+  <rect width="512" height="512" rx="112" fill="url(#bgGrid)"/>
 
-  <!-- Equalizer Dots -->
-  <circle cx="256" cy="76" r="10" fill="#e52b2b"/>
-  <circle cx="286" cy="84" r="8" fill="#f0f0f0"/>
-  <circle cx="226" cy="84" r="8" fill="#f0f0f0"/>
-  <circle cx="314" cy="100" r="6" fill="#666666"/>
-  <circle cx="198" cy="100" r="6" fill="#666666"/>
+  <!-- Outer Nothing OS Industrial Glyph Circuit Track -->
+  <rect x="24" y="24" width="464" height="464" rx="90" fill="none" stroke="#1f1f1f" stroke-width="2"/>
+  <circle cx="256" cy="256" r="216" fill="none" stroke="#1c1c1c" stroke-width="2" stroke-dasharray="4 8"/>
+  <circle cx="256" cy="256" r="188" fill="none" stroke="#181818" stroke-width="1.5"/>
 
-  <!-- Nothing OS text -->
-  <text x="256" y="440" font-family="Courier New, monospace" font-size="28" font-weight="bold" fill="#f0f0f0" text-anchor="middle" letter-spacing="8">DOT (PLAYER)</text>
+  <!-- Top Nothing Glyph Slash -->
+  <line x1="390" y1="56" x2="430" y2="96" stroke="#e52b2b" stroke-width="4" stroke-linecap="round" filter="url(#redGlow)"/>
+  <circle cx="442" cy="108" r="4" fill="#f0f0f0"/>
+
+  <!-- Hardware Tech Text Annotations -->
+  <text x="56" y="72" font-family="'Courier New', monospace" font-size="11" font-weight="700" fill="#666666" letter-spacing="3">[DOT-NOTE // TYPE-A]</text>
+  <text x="370" y="456" font-family="'Courier New', monospace" font-size="11" font-weight="700" fill="#666666" letter-spacing="3">24-BIT/192k</text>
+  <text x="56" y="456" font-family="'Courier New', monospace" font-size="11" font-weight="700" fill="#444444" letter-spacing="2">NOTHING (OS)</text>
+
+  <!-- ================= INSANE ASCII / MATRIX MUSIC NOTE (♫) ================= -->
+  <!-- Center Aura Ring -->
+  <circle cx="240" cy="250" r="140" fill="#090909" stroke="#222222" stroke-width="1.5"/>
+
+  <!-- BEAM CONNECTOR (Top Bar of the Beamed Notes: 2 parallel dot-matrix rails) -->
+  <!-- Top Rail -->
+  <circle cx="186" cy="148" r="7.5" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="214" cy="142" r="7.5" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="242" cy="136" r="7.5" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="270" cy="130" r="7.5" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="298" cy="124" r="7.5" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="326" cy="118" r="8.5" fill="#e52b2b" filter="url(#redGlow)"/>
+
+  <!-- Lower Rail (Double Beam Accent) -->
+  <circle cx="186" cy="172" r="6" fill="#888888"/>
+  <circle cx="214" cy="166" r="6" fill="#888888"/>
+  <circle cx="242" cy="160" r="6" fill="#888888"/>
+  <circle cx="270" cy="154" r="6" fill="#888888"/>
+  <circle cx="298" cy="148" r="6" fill="#888888"/>
+  <circle cx="326" cy="142" r="6.5" fill="#f0f0f0"/>
+
+  <!-- LEFT STEM (Dot Matrix Vertical Pillar) -->
+  <circle cx="186" cy="196" r="6.5" fill="#f0f0f0"/>
+  <circle cx="186" cy="222" r="6.5" fill="#f0f0f0"/>
+  <circle cx="186" cy="248" r="6.5" fill="#f0f0f0"/>
+  <circle cx="186" cy="274" r="6.5" fill="#f0f0f0"/>
+  <circle cx="186" cy="300" r="6.5" fill="#f0f0f0"/>
+
+  <!-- RIGHT STEM (Elevated Dot Matrix Vertical Pillar) -->
+  <circle cx="326" cy="166" r="6.5" fill="#f0f0f0"/>
+  <circle cx="326" cy="192" r="6.5" fill="#f0f0f0"/>
+  <circle cx="326" cy="218" r="6.5" fill="#f0f0f0"/>
+  <circle cx="326" cy="244" r="6.5" fill="#f0f0f0"/>
+  <circle cx="326" cy="270" r="6.5" fill="#f0f0f0"/>
+
+  <!-- LEFT NOTE HEAD (Angled 3x3 Matrix Cluster with Iconic Red Core) -->
+  <!-- Outer ring dots -->
+  <circle cx="140" cy="310" r="7" fill="#f0f0f0"/>
+  <circle cx="164" cy="304" r="7" fill="#f0f0f0"/>
+  <circle cx="186" cy="324" r="7" fill="#f0f0f0"/>
+  <circle cx="182" cy="348" r="7" fill="#f0f0f0"/>
+  <circle cx="160" cy="358" r="7" fill="#f0f0f0"/>
+  <circle cx="134" cy="350" r="7" fill="#f0f0f0"/>
+  <circle cx="120" cy="332" r="7" fill="#f0f0f0"/>
+  <circle cx="124" cy="316" r="7" fill="#f0f0f0"/>
+  <!-- The Signature Nothing Red Core Dot -->
+  <circle cx="152" cy="330" r="11" fill="#e52b2b" filter="url(#redGlow)"/>
+  <circle cx="152" cy="330" r="3.5" fill="#ffffff"/>
+
+  <!-- RIGHT NOTE HEAD (Elevated Matrix Cluster with White Core) -->
+  <circle cx="280" cy="280" r="7" fill="#f0f0f0"/>
+  <circle cx="304" cy="274" r="7" fill="#f0f0f0"/>
+  <circle cx="326" cy="294" r="7" fill="#f0f0f0"/>
+  <circle cx="322" cy="318" r="7" fill="#f0f0f0"/>
+  <circle cx="300" cy="328" r="7" fill="#f0f0f0"/>
+  <circle cx="274" cy="320" r="7" fill="#f0f0f0"/>
+  <circle cx="260" cy="302" r="7" fill="#f0f0f0"/>
+  <circle cx="264" cy="286" r="7" fill="#f0f0f0"/>
+  <!-- Center Core -->
+  <circle cx="292" cy="300" r="10" fill="#f0f0f0" filter="url(#whiteGlow)"/>
+  <circle cx="292" cy="300" r="3.5" fill="#070707"/>
+
+  <!-- Decorative Orbiting Sound Wave Particles (ASCII style) -->
+  <circle cx="360" cy="180" r="3" fill="#666666"/>
+  <circle cx="380" cy="170" r="3" fill="#888888"/>
+  <circle cx="400" cy="160" r="4" fill="#e52b2b" filter="url(#redGlow)"/>
+  <circle cx="420" cy="150" r="3" fill="#666666"/>
+
+  <circle cx="90" cy="360" r="3" fill="#666666"/>
+  <circle cx="70" cy="370" r="4" fill="#f0f0f0"/>
+  <circle cx="50" cy="380" r="2.5" fill="#444444"/>
+
+  <!-- Bottom Brand Title in authentic Nothing Dot Matrix Style -->
+  <g transform="translate(256, 420)">
+    <circle cx="-100" cy="0" r="2" fill="#e52b2b"/>
+    <circle cx="-90" cy="0" r="2" fill="#888888"/>
+    <circle cx="-80" cy="0" r="2" fill="#444444"/>
+    <text x="0" y="5" font-family="'Courier New', monospace" font-size="20" font-weight="900" fill="#f2f2f2" text-anchor="middle" letter-spacing="8">DOT MUSIC</text>
+    <circle cx="80" cy="0" r="2" fill="#444444"/>
+    <circle cx="90" cy="0" r="2" fill="#888888"/>
+    <circle cx="100" cy="0" r="2" fill="#e52b2b"/>
+  </g>
 </svg>

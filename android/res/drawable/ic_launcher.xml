@@ -1,0 +1,81 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Background: Deep Obsidian -->
+    <path
+        android:fillColor="#070707"
+        android:pathData="M0,0h108v108h-108z"/>
+
+    <!-- Concentric Glyph Ring -->
+    <path
+        android:strokeColor="#222222"
+        android:strokeWidth="1"
+        android:fillColor="#00000000"
+        android:pathData="M54,14 A40,40 0 1,0 54,94 A40,40 0 1,0 54,14 Z"/>
+
+    <!-- Top Red Slash Accent -->
+    <path
+        android:fillColor="#E52B2B"
+        android:pathData="M78,20 L84,26 L81,29 L75,23 Z"/>
+
+    <!-- Beams -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M40,32 A2.5,2.5 0 1,1 40,27 A2.5,2.5 0 1,1 40,32 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M52,29 A2.5,2.5 0 1,1 52,24 A2.5,2.5 0 1,1 52,29 Z"/>
+    <path
+        android:fillColor="#E52B2B"
+        android:pathData="M64,26 A3,3 0 1,1 64,20 A3,3 0 1,1 64,26 Z"/>
+
+    <!-- Left Vertical Stem Dots -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M40,41 A2,2 0 1,1 40,37 A2,2 0 1,1 40,41 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M40,49 A2,2 0 1,1 40,45 A2,2 0 1,1 40,49 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M40,57 A2,2 0 1,1 40,53 A2,2 0 1,1 40,57 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M40,65 A2,2 0 1,1 40,61 A2,2 0 1,1 40,65 Z"/>
+
+    <!-- Right Vertical Stem Dots -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M64,35 A2,2 0 1,1 64,31 A2,2 0 1,1 64,35 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M64,43 A2,2 0 1,1 64,39 A2,2 0 1,1 64,43 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M64,51 A2,2 0 1,1 64,47 A2,2 0 1,1 64,51 Z"/>
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M64,59 A2,2 0 1,1 64,55 A2,2 0 1,1 64,59 Z"/>
+
+    <!-- Left Note Head (With Nothing Red Core) -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M33,76 A7,7 0 1,1 33,62 A7,7 0 1,1 33,76 Z"/>
+    <path
+        android:fillColor="#E52B2B"
+        android:pathData="M33,73 A4,4 0 1,1 33,65 A4,4 0 1,1 33,73 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,70.5 A1.5,1.5 0 1,1 33,67.5 A1.5,1.5 0 1,1 33,70.5 Z"/>
+
+    <!-- Right Note Head -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M57,70 A6.5,6.5 0 1,1 57,57 A6.5,6.5 0 1,1 57,70 Z"/>
+    <path
+        android:fillColor="#070707"
+        android:pathData="M57,66 A2.5,2.5 0 1,1 57,61 A2.5,2.5 0 1,1 57,66 Z"/>
+</vector>

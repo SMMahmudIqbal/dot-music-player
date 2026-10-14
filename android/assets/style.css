@@ -92,27 +92,25 @@ body {
 .brand-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: var(--font-ndot);
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
   font-size: 15px;
+  cursor: pointer;
 }
 
-.brand-glyph-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--accent-red);
-  box-shadow: 0 0 10px var(--accent-red-glow);
-  display: inline-block;
-  animation: pulse-dot 2.4s infinite ease-in-out;
+.brand-note-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+  filter: drop-shadow(0 0 6px rgba(229, 43, 43, 0.45));
 }
 
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+.brand-logo:hover .brand-note-icon {
+  transform: scale(1.15) rotate(-4deg);
 }
 
 .brand-pill {

@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const coverHtml = track.picture 
         ? `<img class="track-cover-mini" src="${track.picture}" alt="Art"/>`
-        : `<div class="track-cover-mini">●</div>`;
+        : `<img class="track-cover-mini" src="icon.svg" alt="Art"/>`;
 
       item.innerHTML = `
         <div class="track-item-left">
@@ -325,13 +325,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.heroSize) el.heroSize.textContent = formatBytes(track.size);
 
     if (el.albumArt) {
-      if (track.picture) {
-        el.albumArt.src = track.picture;
-        el.albumArt.style.display = 'block';
-      } else {
-        el.albumArt.src = '';
-        el.albumArt.style.display = 'none';
-      }
+      el.albumArt.src = track.picture || 'icon.svg';
+      el.albumArt.style.display = 'block';
     }
 
     if (el.btnPlayPause) {
