@@ -102,6 +102,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('Storage or Visualizer init error:', e);
   }
 
+  // Global callback for Native Android MediaStore audio scan
+  window.onAndroidAudioScanned = async (tracks) => {
+    if (typeof tracks === 'string') {
+      try { tracks = JSON.parse(tracks); } catch (e) { tracks = []; }
+    }
+    if (Array.isArray(tracks)) {
+      logScanConsole(`Discovered ${tracks.length} audio tracks from Android MediaStore.`);
+      if (tracks.length > 0) {
+        if (el.scanProgressFill) el.scanProgressFill.style.width = '100%';
+        if (el.scanProgressText) el.scanProgressText.textContent = `INDEXED ${tracks.length} SONGS`;
+        await storage.saveAllTracks(tracks);
+        await reloadLibrary();
+        showToast(`AUTOSCAN: ${tracks.length} SONGS LOADED`);
+      } else {
+        if (el.scanProgressText) el.scanProgressText.textContent = 'NO AUDIO FILES DETECTED';
+        showToast('AUTOSCAN: NO SONGS FOUND ON DEVICE');
+      }
+      setTimeout(closeScanModal, 1000);
+    }
+  };
+
+  function triggerHaptic(ms = 15) {
+    if (window.AndroidApp && window.AndroidApp.vibrate) {
+      window.AndroidApp.vibrate(ms);
+    } else if (navigator.vibrate) {
+      navigator.vibrate(ms);
+    }
+  }
+
+  // If running inside Android native app, automatically trigger scan on startup
+  if (window.AndroidApp && window.AndroidApp.isAndroidApp()) {
+    setTimeout(() => {
+      window.AndroidApp.scanDeviceAudio();
+    }, 300);
+  }
+
   // Live Header Clock
   function updateClock() {
     const now = new Date();
@@ -142,19 +178,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.library = tracks;
     updateTrackCountBadge();
     renderTrackList();
-
-    if (state.library.length === 0) {
-      if (el.trackList) {
-        el.trackList.innerHTML = `
-          <div style="padding: 24px 12px; text-align: center; color: var(--text-muted); line-height: 1.8;">
-            <div style="font-size: 20px; margin-bottom: 8px;">[ · ]</div>
-            NO LOCAL TRACKS LOADED<br/>
-            CLICK <strong style="color: var(--text-primary);">[ AUTOSCAN DEVICE ]</strong><br/>
-            OR DROP FOLDER / CLICK DEMO SYNTH
-          </div>
-        `;
-      }
-    }
   }
 
   function updateTrackCountBadge() {
@@ -204,6 +227,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderTrackList() {
     if (!el.trackList) return;
+
+    if (state.library.length === 0) {
+      el.trackList.innerHTML = `
+        <div class="empty-library-state">
+          <div class="empty-icon-ascii">[ · · · ]</div>
+          <div class="empty-title">NO SONGS FOUND YET</div>
+          <div class="empty-subtitle">AUTOSCAN DEVICE STORAGE TO FIND AND PLAY YOUR SONGS</div>
+          <button class="btn btn-accent empty-scan-btn" id="btn-empty-scan">
+            <span>[·]</span> AUTOSCAN DEVICE
+          </button>
+        </div>
+      `;
+      const emptyBtn = el.trackList.querySelector('#btn-empty-scan');
+      if (emptyBtn) emptyBtn.addEventListener('click', handleAutoScan);
+      return;
+    }
+
     const tracks = getFilteredTracks();
 
     if (tracks.length === 0 && state.library.length > 0) {
@@ -285,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       file = window.memoryFiles.get(track.id);
     }
 
-    if (!file) {
+    if (!file && !track.url && !track.contentUri) {
       showToast('FILE ACCESS NEEDED: CLICK [AUTOSCAN DEVICE] TO CONNECT');
       return;
     }
@@ -549,7 +589,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function handleAutoScan() {
+    triggerHaptic(25);
     openScanModal();
+
+    if (window.AndroidApp && window.AndroidApp.isAndroidApp()) {
+      if (el.scanProgressText) el.scanProgressText.textContent = 'SCANNING DEVICE STORAGE...';
+      logScanConsole('Connecting to Native Android MediaStore...');
+      logScanConsole('Scanning Internal Storage & SD Cards for songs...');
+      window.AndroidApp.scanDeviceAudio();
+      return;
+    }
+
     logScanConsole('Requesting device directory access...');
 
     try {
@@ -581,8 +631,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnAutoScan) el.btnAutoScan.addEventListener('click', handleAutoScan);
 
-  if (el.btnScanFolder && el.folderInput) {
-    el.btnScanFolder.addEventListener('click', () => el.folderInput.click());
+  if (el.btnScanFolder) {
+    el.btnScanFolder.addEventListener('click', () => {
+      if (window.AndroidApp && window.AndroidApp.isAndroidApp()) {
+        handleAutoScan();
+      } else if (el.folderInput) {
+        el.folderInput.click();
+      }
+    });
     el.folderInput.addEventListener('change', async (e) => {
       const files = e.target.files;
       if (files && files.length > 0) {

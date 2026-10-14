@@ -183,7 +183,7 @@ class AudioEngine {
 
     this.currentTrack = track;
 
-    // Check memory files cache or track.file
+    // Check memory files cache, track.file, or streaming track.url
     let file = track.file;
     if (!file && window.memoryFiles && window.memoryFiles.has(track.id)) {
       file = window.memoryFiles.get(track.id);
@@ -192,6 +192,10 @@ class AudioEngine {
     if (file) {
       this.currentObjectURL = URL.createObjectURL(file);
       this.audio.src = this.currentObjectURL;
+    } else if (track.url) {
+      this.audio.src = track.url;
+    } else if (track.contentUri) {
+      this.audio.src = track.contentUri;
     } else {
       throw new Error('FILE_HANDLE_EXPIRED');
     }

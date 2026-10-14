@@ -671,6 +671,45 @@ body {
   color: var(--accent-red);
 }
 
+.empty-library-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  gap: 12px;
+}
+
+.empty-icon-ascii {
+  font-family: var(--font-ndot);
+  font-size: 28px;
+  color: var(--accent-red);
+  letter-spacing: 4px;
+  filter: drop-shadow(0 0 10px var(--accent-red-glow));
+}
+
+.empty-title {
+  font-family: var(--font-ndot);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.empty-subtitle {
+  font-size: 10px;
+  color: var(--text-secondary);
+  max-width: 260px;
+  line-height: 1.5;
+}
+
+.empty-scan-btn {
+  margin-top: 8px;
+  padding: 10px 20px;
+  font-size: 11px;
+}
+
 /* ================= View 3: EQUALIZER & TUNING ================= */
 .tuning-card {
   background: var(--bg-secondary);
