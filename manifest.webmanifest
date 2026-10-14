@@ -1,0 +1,16 @@
+{
+  "name": "Dot Music Player",
+  "short_name": "Dot Music",
+  "description": "100% Offline Nothing OS style music player with real-time ASCII visualizers and local device autoscan",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#070707",
+  "theme_color": "#070707",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

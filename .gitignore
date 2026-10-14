@@ -1,0 +1,8 @@
+# Build and temporary files
+android/bin/
+android/debug.keystore
+*.idsig
+*.log
+.DS_Store
+Thumbs.db
+node_modules/

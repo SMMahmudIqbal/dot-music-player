@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dot Music Player - 100% Offline Nothing OS Style Music Player with ASCII Visualizers and Local Device AutoScan">
+  <meta name="author" content="S. M. Mahmud Iqbal">
+  <meta name="theme-color" content="#070707">
+  <title>Dot Music Player // Nothing OS</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Hidden File & Folder Inputs -->
+  <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;" aria-label="Select directory">
+  <input type="file" id="files-input" multiple accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.opus,.webm" style="display: none;" aria-label="Select audio files">
+
+  <!-- Nothing OS Status Header -->
+  <header class="nothing-header">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <span class="brand-glyph-dot"></span>
+        <span>DOT (PLAYER)</span>
+      </div>
+      <span class="brand-pill">NOTHING OS // 100% OFFLINE</span>
+    </div>
+
+    <div class="header-status-widget">
+      <div class="status-chip">
+        <span style="color: var(--accent-red);">●</span>
+        <span id="header-track-count">0 TRACKS</span>
+      </div>
+      <div class="status-chip">
+        <span>TIME:</span>
+        <span id="header-clock" style="color: var(--text-primary); font-weight: 700;">00:00:00</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Mobile Navigation Toggles -->
+      <button class="btn mobile-nav-btn" id="btn-toggle-library" aria-label="Toggle Library Panel">LIB</button>
+      <button class="btn mobile-nav-btn" id="btn-toggle-eq" aria-label="Toggle Equalizer Panel">EQ</button>
+
+      <button class="btn btn-accent" id="btn-autoscan" title="Scan local drive / music folder recursively">
+        <span>[·]</span> AUTOSCAN DEVICE
+      </button>
+      <button class="btn" id="btn-demo-synth" title="Generate procedural synth track to test audio & visualizer">
+        SYNTH DEMO
+      </button>
+      <a href="DotMusicPlayer.apk" download="DotMusicPlayer.apk" class="btn" style="text-decoration: none;" title="Download Android APK (54 KB)">
+        ⤓ APK
+      </a>
+      <button class="btn btn-icon" id="btn-shortcuts" title="Keyboard Shortcuts (?)" aria-label="Keyboard Shortcuts">
+        ?
+      </button>
+    </div>
+  </header>
+
+  <!-- Main App Layout -->
+  <main class="app-container">
+
+    <!-- Left Column: Library & Scanner Sidebar -->
+    <aside class="sidebar-panel" id="sidebar-panel">
+      <div class="panel-header-title">
+        <span>[01] LOCAL REPOSITORY</span>
+        <div style="display: flex; gap: 4px;">
+          <button class="btn" id="btn-export-lib" style="padding: 2px 6px; font-size: 9px;" title="Export library manifest as JSON">EXPORT</button>
+          <button class="btn" id="btn-clear-library" style="padding: 2px 6px; font-size: 9px;" title="Clear IndexedDB storage">CLEAR</button>
+        </div>
+      </div>
+
+      <!-- Scan & Drop Box -->
+      <div class="scan-action-box" id="scan-drop-box">
+        <div style="font-size: 16px;">⤓</div>
+        <div style="font-weight: 600; letter-spacing: 0.5px;">DRAG & DROP MUSIC HERE</div>
+        <div class="scan-hint">OR SELECT IMPORT METHOD:</div>
+        <div style="display: flex; gap: 6px; justify-content: center;">
+          <button class="btn" id="btn-scan-folder" style="font-size: 10px; padding: 5px 8px;">FOLDERS</button>
+          <button class="btn" id="btn-scan-files" style="font-size: 10px; padding: 5px 8px;">FILES</button>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="search-bar-wrap">
+        <span class="search-icon-dot">/</span>
+        <input type="text" class="search-input" id="search-input" placeholder="SEARCH TITLE, ARTIST, ALBUM (PRESS /)" aria-label="Search library">
+      </div>
+
+      <!-- Controls Bar: Filter Tabs & Sorting Dropdown -->
+      <div class="library-controls-bar">
+        <div class="library-tabs">
+          <button class="tab-btn active" data-filter="all">ALL</button>
+          <button class="tab-btn" data-filter="favorites">FAV</button>
+        </div>
+        <select class="sort-select" id="sort-select" aria-label="Sort library tracks">
+          <option value="title-asc">SORT: TITLE (A-Z)</option>
+          <option value="title-desc">SORT: TITLE (Z-A)</option>
+          <option value="artist-asc">SORT: ARTIST</option>
+          <option value="album-asc">SORT: ALBUM</option>
+          <option value="size-desc">SORT: SIZE (MAX)</option>
+        </select>
+      </div>
+
+      <!-- Track List Scroll -->
+      <div class="track-list-scroll" id="track-list-scroll">
+        <!-- Rendered dynamically -->
+      </div>
+    </aside>
+
+    <!-- Center Column: Visualizer & Playback Stage -->
+    <section class="player-center-panel">
+
+      <!-- ASCII Visualizer Card -->
+      <div class="visualizer-card" id="visualizer-card">
+        <div class="visualizer-top-bar">
+          <div class="visualizer-mode-badge">
+            <span style="color: var(--accent-red);">[·]</span>
+            <span id="vis-mode-label">NOTHING DOT SPECTRUM</span>
+          </div>
+
+          <!-- Mode selector pills -->
+          <div class="visualizer-tabs">
+            <button class="vis-tab-pill active" data-mode="0">SPECTRUM</button>
+            <button class="vis-tab-pill" data-mode="1">CASSETTE</button>
+            <button class="vis-tab-pill" data-mode="2">VINYL</button>
+            <button class="vis-tab-pill" data-mode="3">OSCILLO</button>
+            <button class="vis-tab-pill" data-mode="4">STEREO VU</button>
+            <button class="vis-tab-pill" data-mode="5">GLYPH</button>
+            <button class="vis-tab-pill" data-mode="6">RAIN</button>
+          </div>
+
+          <div style="display: flex; gap: 6px;">
+            <button class="btn" id="btn-fullscreen-vis" style="font-size: 10px; padding: 4px 8px;" title="Toggle Fullscreen Visualizer (F)">EXPAND (F)</button>
+            <button class="btn" id="btn-cycle-vis" style="font-size: 10px; padding: 4px 8px;" title="Cycle Visualizer (V)">CYCLE (V)</button>
+            <button class="btn" id="btn-vis-theme" style="font-size: 10px; padding: 4px 8px;" title="Change Visualizer Theme">PALETTE</button>
+          </div>
+        </div>
+
+        <!-- ASCII Terminal Screen -->
+        <div class="ascii-screen-frame">
+          <pre class="ascii-display" id="ascii-visualizer">
+ [·] DOT MUSIC PLAYER // NOTHING OS
+ INITIALIZING 100% OFFLINE AUDIO ENGINE...
+          </pre>
+        </div>
+      </div>
+
+      <!-- Now Playing Info Banner -->
+      <div class="now-playing-banner">
+        <img class="album-art-large" id="now-playing-art" src="" alt="Album Artwork" style="display: none;">
+        <div class="track-main-info">
+          <div class="track-hero-title" id="hero-title">READY TO PLAY</div>
+          <div class="track-hero-artist" id="hero-artist">AUTOSCAN LOCAL STORAGE OR CHOOSE A TRACK</div>
+          <div class="track-hero-tags">
+            <span class="tag-badge" id="hero-format">OFFLINE STEREO</span>
+            <span class="tag-badge" id="hero-size">0.0 MB</span>
+            <span class="tag-badge" style="color: var(--accent-red); border-color: var(--accent-red);">NOTHING OS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrub Bar -->
+      <div class="scrub-container">
+        <input type="range" class="seek-slider" id="seek-slider" min="0" max="1000" value="0" aria-label="Seek timeline">
+        <div class="time-indicators">
+          <span id="time-current">00:00</span>
+          <span id="time-total">00:00</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls Deck -->
+      <div class="control-deck">
+        <div class="deck-group-left">
+          <button class="btn btn-icon" id="btn-shuffle" title="Shuffle (S)" aria-label="Toggle Shuffle">⇄</button>
+          <button class="btn btn-icon" id="btn-repeat" title="Repeat (R)" aria-label="Toggle Repeat">🔁</button>
+          <button class="btn" id="btn-speed" style="font-size: 10px; padding: 4px 8px;" title="Playback Speed" aria-label="Playback Speed">1.0x</button>
+        </div>
+
+        <div class="deck-group-center">
+          <button class="btn btn-icon" id="btn-prev" title="Previous Track (J)" aria-label="Previous Track">⏮</button>
+          <button class="btn btn-primary btn-icon-lg" id="btn-play-pause" title="Play/Pause (Space)" aria-label="Play or Pause">▶</button>
+          <button class="btn btn-icon" id="btn-next" title="Next Track (K)" aria-label="Next Track">⏭</button>
+        </div>
+
+        <div class="deck-group-right">
+          <div class="volume-wrap">
+            <button class="btn btn-icon" id="btn-mute" style="border: none; background: transparent; font-size: 13px;" aria-label="Toggle Mute">🔊</button>
+            <input type="range" class="vol-slider" id="vol-slider" min="0" max="100" value="85" aria-label="Volume Slider">
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right Column: Tuning & Equalizer Panel -->
+    <aside class="tuning-panel" id="tuning-panel">
+      <div class="panel-header-title">
+        <span>[02] ACOUSTIC TUNING</span>
+        <span style="color: var(--accent-red);">10-BAND EQ</span>
+      </div>
+
+      <!-- Presets -->
+      <div class="tuning-card">
+        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">EQUALIZER PRESETS</div>
+        <div class="preset-pills-grid">
+          <button class="preset-pill active" data-preset="FLAT">FLAT</button>
+          <button class="preset-pill" data-preset="BASS BOOST">BASS BOOST</button>
+          <button class="preset-pill" data-preset="NOTHING DOT">NOTHING DOT</button>
+          <button class="preset-pill" data-preset="CYBER SYNTH">CYBER SYNTH</button>
+          <button class="preset-pill" data-preset="VOCAL / TALK">VOCAL</button>
+          <button class="preset-pill" data-preset="ROCK">ROCK</button>
+          <button class="preset-pill" data-preset="ACOUSTIC">ACOUSTIC</button>
+          <button class="preset-pill" data-preset="TREBLE">TREBLE</button>
+        </div>
+      </div>
+
+      <!-- 10-Band Sliders -->
+      <div class="tuning-card">
+        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">FREQUENCY RESPONSE (-12dB to +12dB)</div>
+        <div class="eq-sliders-container">
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="32Hz EQ Band">
+            <span class="eq-band-label">32</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="64Hz EQ Band">
+            <span class="eq-band-label">64</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="125Hz EQ Band">
+            <span class="eq-band-label">125</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="250Hz EQ Band">
+            <span class="eq-band-label">250</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="500Hz EQ Band">
+            <span class="eq-band-label">500</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="1kHz EQ Band">
+            <span class="eq-band-label">1K</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="2kHz EQ Band">
+            <span class="eq-band-label">2K</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="4kHz EQ Band">
+            <span class="eq-band-label">4K</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="8kHz EQ Band">
+            <span class="eq-band-label">8K</span>
+          </div>
+          <div class="eq-band-col">
+            <span class="eq-band-val">0dB</span>
+            <input type="range" class="eq-slider-vertical" min="-12" max="12" step="0.5" value="0" aria-label="16kHz EQ Band">
+            <span class="eq-band-label">16K</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stereo Sound Stage / Panner -->
+      <div class="tuning-card">
+        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">STEREO PANORAMA</div>
+        <div class="sound-stage-row">
+          <span style="font-size: 10px; color: var(--text-muted);">L</span>
+          <input type="range" class="pan-slider" id="pan-slider" min="-100" max="100" value="0" aria-label="Stereo Panning">
+          <span style="font-size: 10px; color: var(--text-muted);">R</span>
+        </div>
+      </div>
+
+      <!-- Sleep Timer Widget -->
+      <div class="widget-row">
+        <div>
+          <div style="font-size: 11px; font-weight: 600;">SLEEP TIMER</div>
+          <div style="font-size: 9px; color: var(--text-muted);">AUTO FADEOUT ON TIMER</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="sleep-timer-badge" style="font-size: 10px; color: var(--accent-red);">OFF</span>
+          <select id="sleep-timer-select" class="btn" style="padding: 4px 8px; font-size: 10px;" aria-label="Sleep timer options">
+            <option value="0">OFF</option>
+            <option value="15">15 MIN</option>
+            <option value="30">30 MIN</option>
+            <option value="45">45 MIN</option>
+            <option value="60">60 MIN</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Nothing OS Discreet Footer -->
+  <footer class="nothing-footer">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span>DOT MUSIC PLAYER v1.2</span>
+      <span>•</span>
+      <span>OFFLINE STORAGE: INDEXEDDB</span>
+      <span>•</span>
+      <span>AUDIO: WEB AUDIO API FFT</span>
+    </div>
+    <div class="footer-attribution">
+      Developed by S. M. Mahmud Iqbal
+    </div>
+  </footer>
+
+  <!-- Autoscan Progress Modal -->
+  <div class="modal-overlay" id="scan-modal">
+    <div class="modal-card">
+      <div class="modal-title-bar">
+        <span>[·] DEVICE AUTOSCAN IN PROGRESS</span>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="scan-progress-fill"></div>
+      </div>
+
+      <div id="scan-progress-text" style="font-size: 11px; color: var(--text-secondary); text-align: center;">
+        INITIALIZING...
+      </div>
+
+      <div class="console-readout" id="scan-console"></div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn" id="btn-scan-cancel">CANCEL SCAN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div class="modal-overlay" id="shortcuts-modal">
+    <div class="modal-card">
+      <div class="modal-title-bar">
+        <span>[·] KEYBOARD SHORTCUTS MATRIX</span>
+        <button class="modal-close-btn" id="btn-shortcuts-close" aria-label="Close shortcuts modal">✕</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px;">
+        <div><strong style="color: var(--accent-red);">SPACE</strong> : Play / Pause</div>
+        <div><strong style="color: var(--accent-red);">J / K</strong> : Previous / Next</div>
+        <div><strong style="color: var(--accent-red);">← / →</strong> : Seek 5s (Shift: 15s)</div>
+        <div><strong style="color: var(--accent-red);">↑ / ↓</strong> : Volume Up / Down</div>
+        <div><strong style="color: var(--accent-red);">M</strong> : Toggle Mute</div>
+        <div><strong style="color: var(--accent-red);">V</strong> : Cycle ASCII Visualizer</div>
+        <div><strong style="color: var(--accent-red);">F</strong> : Toggle Fullscreen Vis</div>
+        <div><strong style="color: var(--accent-red);">S</strong> : Toggle Shuffle</div>
+        <div><strong style="color: var(--accent-red);">R</strong> : Toggle Repeat</div>
+        <div><strong style="color: var(--accent-red);">/</strong> : Focus Search Bar</div>
+        <div><strong style="color: var(--accent-red);">?</strong> : Toggle Shortcuts Dialog</div>
+      </div>
+
+      <div style="font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 10px;">
+        100% OFFLINE LOCAL ARCHITECTURE — ZERO TELEMETRY
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notice" id="toast-notice"></div>
+
+  <!-- Scripts -->
+  <script src="id3-parser.js"></script>
+  <script src="scanner.js"></script>
+  <script src="audio-engine.js"></script>
+  <script src="visualizer.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .catch((err) => console.log('SW registration skipped:', err));
+      });
+    }
+  </script>
+</body>
+</html>
