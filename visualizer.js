@@ -8,14 +8,11 @@ class AsciiVisualizer {
   constructor(containerElement, audioEngine) {
     this.container = containerElement;
     this.audioEngine = audioEngine;
-    this.mode = 0; // 0..6
+    this.mode = 0; // 0..3
     this.modeNames = [
       'NOTHING DOT SPECTRUM',
-      'REEL CASSETTE TAPE',
-      'VINYL TURNTABLE',
       'CYBER OSCILLOSCOPE',
       'DUAL STEREO VU METER',
-      'NOTHING GLYPH MATRIX',
       'MATRIX CYBER RAIN'
     ];
 
@@ -64,9 +61,28 @@ class AsciiVisualizer {
 
   start() {
     if (this.animationId) cancelAnimationFrame(this.animationId);
+
+    if (!this._visibilityBound) {
+      this._visibilityBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+          }
+        } else {
+          if (!this.animationId) {
+            this.start();
+          }
+        }
+      });
+    }
+
     const loop = () => {
-      this.render();
-      this.frame++;
+      if (!document.hidden) {
+        this.render();
+        this.frame++;
+      }
       this.animationId = requestAnimationFrame(loop);
     };
     loop();
@@ -90,21 +106,12 @@ class AsciiVisualizer {
         asciiOutput = this.renderDotSpectrum(isPlaying);
         break;
       case 1:
-        asciiOutput = this.renderCassetteTape(isPlaying);
-        break;
-      case 2:
-        asciiOutput = this.renderVinylTurntable(isPlaying);
-        break;
-      case 3:
         asciiOutput = this.renderOscilloscope(isPlaying);
         break;
-      case 4:
+      case 2:
         asciiOutput = this.renderStereoVU(isPlaying);
         break;
-      case 5:
-        asciiOutput = this.renderGlyphMatrix(isPlaying);
-        break;
-      case 6:
+      case 3:
         asciiOutput = this.renderMatrixRain(isPlaying);
         break;
       default:

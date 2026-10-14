@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="track-item-left">
           ${coverHtml}
           <div class="track-meta-wrap">
-            <div class="track-title">${track.title || track.name}</div>
+            <div class="track-title">${track.title || track.name}${isActive ? '<span class="now-playing-bars"><span></span><span></span><span></span></span>' : ''}</div>
             <div class="track-artist">${track.artist || 'Unknown'} // ${track.album || 'Local'}</div>
           </div>
         </div>
@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function playNextTrack() {
+    triggerHaptic(15);
     if (state.library.length === 0) return;
     if (state.isShuffle) {
       state.currentTrackIndex = Math.floor(Math.random() * state.library.length);
@@ -397,6 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function playPrevTrack() {
+    triggerHaptic(15);
     if (state.library.length === 0) return;
     if (audioEngine.audio.currentTime > 3) {
       audioEngine.seek(0);
@@ -414,8 +416,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   audioEngine.onTimeUpdate = (current, total) => {
     if (el.timeCurrent) el.timeCurrent.textContent = formatTime(current);
     if (el.timeTotal) el.timeTotal.textContent = formatTime(total);
-    if (el.seekSlider && total > 0 && !el.seekSlider.matches(':active')) {
-      el.seekSlider.value = (current / total) * 1000;
+    if (el.seekSlider && total > 0) {
+      const pct = (current / total) * 100;
+      el.seekSlider.style.setProperty('--seek-pct', `${pct}%`);
+      if (!el.seekSlider.matches(':active')) {
+        el.seekSlider.value = (current / total) * 1000;
+      }
     }
   };
 
@@ -437,7 +443,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   audioEngine.onPlayStateChange = (isPlaying) => {
     if (el.btnPlayPause) {
       el.btnPlayPause.textContent = isPlaying ? '⏸' : '▶';
+      el.btnPlayPause.classList.toggle('playing', isPlaying);
     }
+    if (el.albumArt) {
+      el.albumArt.classList.toggle('playing', isPlaying);
+    }
+    renderTrackList();
     const currentTrack = state.library[state.currentTrackIndex];
     if (window.AndroidApp && window.AndroidApp.updatePlaybackState) {
       const title = currentTrack ? (currentTrack.title || currentTrack.name) : 'Dot Music Player';
@@ -454,6 +465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 5. Controls Bindings
   if (el.btnPlayPause) {
     el.btnPlayPause.addEventListener('click', () => {
+      triggerHaptic(20);
       if (audioEngine.isDemoSynthPlaying) {
         audioEngine.stopDemoSynth();
         return;
@@ -508,6 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnShuffle) {
     el.btnShuffle.addEventListener('click', () => {
+      triggerHaptic(15);
       state.isShuffle = !state.isShuffle;
       el.btnShuffle.classList.toggle('btn-accent', state.isShuffle);
       showToast(state.isShuffle ? 'SHUFFLE: ON' : 'SHUFFLE: OFF');
@@ -516,6 +529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnRepeat) {
     el.btnRepeat.addEventListener('click', () => {
+      triggerHaptic(15);
       const modes = ['all', 'one', 'off'];
       const nextIdx = (modes.indexOf(state.repeatMode) + 1) % modes.length;
       state.repeatMode = modes[nextIdx];
@@ -529,6 +543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
     let speedIdx = 0;
     el.btnSpeed.addEventListener('click', () => {
+      triggerHaptic(12);
       speedIdx = (speedIdx + 1) % speeds.length;
       const rate = speeds[speedIdx];
       audioEngine.setPlaybackRate(rate);
@@ -541,6 +556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (el.visModeTabs) {
     el.visModeTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
+        triggerHaptic(12);
         el.visModeTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         const modeIndex = parseInt(tab.dataset.mode, 10);
@@ -553,6 +569,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnCycleVis) {
     el.btnCycleVis.addEventListener('click', () => {
+      triggerHaptic(15);
       const name = visualizer.nextMode();
       if (el.visModeLabel) el.visModeLabel.textContent = name;
       el.visModeTabs.forEach(t => {
@@ -566,6 +583,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themes = ['mono', 'red', 'green', 'amber'];
     let themeIdx = 0;
     el.btnVisTheme.addEventListener('click', () => {
+      triggerHaptic(12);
       themeIdx = (themeIdx + 1) % themes.length;
       const theme = themes[themeIdx];
       visualizer.setColorTheme(theme);
@@ -895,6 +913,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const viewPanels = document.querySelectorAll('.view-panel');
 
   function switchTab(targetId) {
+    triggerHaptic(15);
     navTabs.forEach((t) => {
       t.classList.toggle('active', t.dataset.target === targetId);
     });

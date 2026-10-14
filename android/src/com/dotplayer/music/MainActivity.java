@@ -446,6 +446,8 @@ public class MainActivity extends Activity {
 
         private void handleClient(Socket socket) {
             try {
+                socket.setTcpNoDelay(true);
+                socket.setSendBufferSize(65536);
                 InputStream in = socket.getInputStream();
                 OutputStream out = socket.getOutputStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(in));
@@ -521,18 +523,21 @@ public class MainActivity extends Activity {
                             pw.flush();
 
                             FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
-                            if (start > 0) fis.skip(start);
+                            if (start > 0) {
+                                fis.getChannel().position(start);
+                            }
 
-                            byte[] buffer = new byte[32768];
+                            java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 65536);
+                            byte[] buffer = new byte[65536];
                             long remaining = contentLength;
                             while (remaining > 0) {
                                 int toRead = (int) Math.min(buffer.length, remaining);
                                 int read = fis.read(buffer, 0, toRead);
                                 if (read <= 0) break;
-                                out.write(buffer, 0, read);
+                                bos.write(buffer, 0, read);
                                 remaining -= read;
                             }
-                            out.flush();
+                            bos.flush();
                             fis.close();
                             pfd.close();
                         }
