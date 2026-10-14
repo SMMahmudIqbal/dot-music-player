@@ -336,6 +336,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateNowPlayingUI(track);
       renderTrackList();
       setupMediaSession(track);
+      if (window.AndroidApp && window.AndroidApp.updatePlaybackState) {
+        window.AndroidApp.updatePlaybackState(
+          true,
+          track.title || track.name,
+          track.artist || 'Unknown Artist',
+          track.album || 'Local Storage'
+        );
+      }
       showToast(`PLAYING: ${track.title}`);
     } catch (err) {
       console.warn('Playback error:', err);
@@ -430,7 +438,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.btnPlayPause) {
       el.btnPlayPause.textContent = isPlaying ? '⏸' : '▶';
     }
+    const currentTrack = state.library[state.currentTrackIndex];
+    if (window.AndroidApp && window.AndroidApp.updatePlaybackState) {
+      const title = currentTrack ? (currentTrack.title || currentTrack.name) : 'Dot Music Player';
+      const artist = currentTrack ? (currentTrack.artist || 'Unknown Artist') : 'Offline Audio';
+      const album = currentTrack ? (currentTrack.album || 'Local Storage') : 'Nothing OS';
+      window.AndroidApp.updatePlaybackState(isPlaying, title, artist, album);
+    }
   };
+
+  window.playNextTrack = playNextTrack;
+  window.playPrevTrack = playPrevTrack;
+  window.audioEngine = audioEngine;
 
   // 5. Controls Bindings
   if (el.btnPlayPause) {

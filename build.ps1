@@ -14,7 +14,7 @@ if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed" }
 
 Write-Host ">>> 3. Compiling Java Source..."
 New-Item -ItemType Directory -Force -Path android\bin\classes | Out-Null
-& javac -d android\bin\classes -cp $PLATFORM android\src\com\dotplayer\music\MainActivity.java
+& javac -d android\bin\classes -cp $PLATFORM (Get-ChildItem android\src\com\dotplayer\music\*.java).FullName
 if ($LASTEXITCODE -ne 0) { throw "javac compilation failed" }
 
 Write-Host ">>> 4. Converting Java bytecode to DEX..."

@@ -53,10 +53,44 @@ public class MainActivity extends Activity {
     private int mServerPort = 0;
     private String mCachedTracksJson = null;
     private boolean mIsPageLoaded = false;
+    private static MainActivity sInstance;
+
+    public static void triggerPlayPause() {
+        if (sInstance != null && sInstance.mWebView != null) {
+            sInstance.runOnUiThread(() -> {
+                sInstance.mWebView.evaluateJavascript("if (window.audioEngine) { window.audioEngine.togglePlay(); }", null);
+            });
+        }
+    }
+
+    public static void triggerNext() {
+        if (sInstance != null && sInstance.mWebView != null) {
+            sInstance.runOnUiThread(() -> {
+                sInstance.mWebView.evaluateJavascript("if (window.playNextTrack) { window.playNextTrack(); }", null);
+            });
+        }
+    }
+
+    public static void triggerPrev() {
+        if (sInstance != null && sInstance.mWebView != null) {
+            sInstance.runOnUiThread(() -> {
+                sInstance.mWebView.evaluateJavascript("if (window.playPrevTrack) { window.playPrevTrack(); }", null);
+            });
+        }
+    }
+
+    public static void triggerStop() {
+        if (sInstance != null && sInstance.mWebView != null) {
+            sInstance.runOnUiThread(() -> {
+                sInstance.mWebView.evaluateJavascript("if (window.audioEngine) { window.audioEngine.pause(); }", null);
+            });
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sInstance = this;
 
         // Keep screen alive during playback and style system status/nav bar
         Window window = getWindow();
@@ -352,6 +386,38 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) {}
             });
         }
+
+        @JavascriptInterface
+        public void updatePlaybackState(boolean isPlaying, String title, String artist, String album) {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(MainActivity.this, MusicService.class);
+                    intent.setAction(MusicService.ACTION_START_OR_UPDATE);
+                    intent.putExtra(MusicService.EXTRA_IS_PLAYING, isPlaying);
+                    intent.putExtra(MusicService.EXTRA_TITLE, title);
+                    intent.putExtra(MusicService.EXTRA_ARTIST, artist);
+                    intent.putExtra(MusicService.EXTRA_ALBUM, album);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent);
+                    } else {
+                        startService(intent);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void stopPlaybackService() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(MainActivity.this, MusicService.class);
+                    intent.setAction(MusicService.ACTION_STOP);
+                    startService(intent);
+                } catch (Exception ignored) {}
+            });
+        }
     }
 
     /**
@@ -556,12 +622,16 @@ public class MainActivity extends Activity {
         if (mWebView != null && mWebView.canGoBack()) {
             mWebView.goBack();
         } else {
-            super.onBackPressed();
+            // Keep playback alive when user exits app with back button
+            moveTaskToBack(true);
         }
     }
 
     @Override
     protected void onDestroy() {
+        if (sInstance == this) {
+            sInstance = null;
+        }
         if (mMediaServer != null) {
             mMediaServer.stop();
         }
