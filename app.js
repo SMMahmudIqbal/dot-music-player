@@ -17,13 +17,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Application State
   const state = {
     library: [],
+    playQueue: [],
     currentTrackIndex: -1,
-    currentFilter: 'all', // 'all', 'favorites'
+    currentFilter: 'all', // 'all', 'favorites', 'folders', 'queue'
     sortOrder: 'title-asc',
     searchTerm: '',
     isShuffle: false,
     repeatMode: 'all', // 'off', 'all', 'one'
     isFullscreenVis: false,
+    isLyricsOpen: false,
+    hapticStrength: localStorage.getItem('dot_haptic') || 'crisp',
+    ambientMeshEnabled: localStorage.getItem('dot_mesh') !== 'false',
+    accentColor: localStorage.getItem('dot_accent') || '#e52b2b',
+    crossfadeSec: parseInt(localStorage.getItem('dot_crossfade') || '0', 10),
     sleepTimerId: null,
     sleepTimerMinutes: 0,
     sleepTimerEndsAt: null
@@ -57,6 +63,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCycleVis: document.getElementById('btn-cycle-vis'),
     btnVisTheme: document.getElementById('btn-vis-theme'),
     btnFullscreenVis: document.getElementById('btn-fullscreen-vis'),
+    btnToggleLyrics: document.getElementById('btn-toggle-lyrics'),
+    lyricsDisplay: document.getElementById('lyrics-display'),
+    lyricsCurrentLine: document.getElementById('lyrics-current-line'),
+    lyricsScroll: document.getElementById('lyrics-scroll'),
     // Now playing
     albumArt: document.getElementById('now-playing-art'),
     heroTitle: document.getElementById('hero-title'),
@@ -76,6 +86,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSpeed: document.getElementById('btn-speed'),
     volSlider: document.getElementById('vol-slider'),
     btnMute: document.getElementById('btn-mute'),
+    // Floating Mini-Player
+    miniPlayerBar: document.getElementById('mini-player-bar'),
+    miniSeekLine: document.getElementById('mini-seek-line'),
+    miniAlbumArt: document.getElementById('mini-album-art'),
+    miniTrackTitle: document.getElementById('mini-track-title'),
+    miniTrackArtist: document.getElementById('mini-track-artist'),
+    miniBtnPlay: document.getElementById('mini-btn-play'),
+    miniBtnNext: document.getElementById('mini-btn-next'),
+    miniPlayerLeft: document.getElementById('mini-player-left'),
     // Tuning & EQ
     presetPills: document.querySelectorAll('.preset-pill'),
     eqSliders: document.querySelectorAll('.eq-slider-vertical'),
@@ -83,6 +102,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnBassBoostToggle: document.getElementById('btn-bass-boost-toggle'),
     bassBoostSlider: document.getElementById('bass-boost-slider'),
     bassBoostVal: document.getElementById('bass-boost-val'),
+    reverbPills: document.querySelectorAll('.reverb-pill'),
+    reverbMixSlider: document.getElementById('reverb-mix-slider'),
+    reverbMixVal: document.getElementById('reverb-mix-val'),
+    reverbCurrentBadge: document.getElementById('reverb-current-badge'),
     telemSampleRate: document.getElementById('telem-sample-rate'),
     telemChannels: document.getElementById('telem-channels'),
     telemState: document.getElementById('telem-state'),
@@ -102,6 +125,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     shortcutsModal: document.getElementById('shortcuts-modal'),
     btnShortcuts: document.getElementById('btn-shortcuts'),
     btnShortcutsClose: document.getElementById('btn-shortcuts-close'),
+    // Customization Matrix Modal
+    btnSettings: document.getElementById('btn-settings'),
+    settingsModal: document.getElementById('settings-modal'),
+    btnSettingsClose: document.getElementById('btn-settings-close'),
+    themeColorBtns: document.querySelectorAll('.theme-color-btn'),
+    themeColorLabel: document.getElementById('theme-color-label'),
+    btnToggleMesh: document.getElementById('btn-toggle-mesh'),
+    hapticSelect: document.getElementById('haptic-select'),
+    crossfadeSelect: document.getElementById('crossfade-select'),
+    ambientCanvas: document.getElementById('ambient-canvas'),
     toastNotice: document.getElementById('toast-notice')
   };
 
@@ -113,7 +146,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     repeat: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>`,
     repeatOne: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><circle cx="12" cy="12" r="2.2" fill="var(--accent-red)" stroke="none"/></svg>`,
     star: `<svg class="icon-svg star-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-    folder: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+    folder: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`,
+    queueAdd: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
   };
 
   // 1. Initialize Storage & Visualizer
@@ -146,10 +180,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   function triggerHaptic(ms = 15) {
+    if (state.hapticStrength === 'off') return;
+    let actualMs = ms;
+    if (state.hapticStrength === 'light') actualMs = Math.max(1, Math.round(ms * 0.5));
+    else if (state.hapticStrength === 'heavy') actualMs = Math.round(ms * 2.0);
+
     if (window.AndroidApp && window.AndroidApp.vibrate) {
-      window.AndroidApp.vibrate(ms);
+      window.AndroidApp.vibrate(actualMs);
     } else if (navigator.vibrate) {
-      navigator.vibrate(ms);
+      navigator.vibrate(actualMs);
     }
   }
 
@@ -322,6 +361,56 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (state.currentFilter === 'queue') {
+      el.trackList.innerHTML = '';
+      if (state.playQueue.length === 0) {
+        el.trackList.innerHTML = `
+          <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+            <div style="font-family: var(--font-ndot); font-size: 11px; margin-bottom: 6px;">PLAYBACK QUEUE EMPTY</div>
+            <div style="font-size: 10px;">TAP [+] ON ANY TRACK TO ADD IT TO UP NEXT</div>
+          </div>
+        `;
+        return;
+      }
+
+      const queueHeader = document.createElement('div');
+      queueHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-size: 10px; color: var(--text-secondary);';
+      queueHeader.innerHTML = `
+        <span>UP NEXT (${state.playQueue.length} TRACKS)</span>
+        <button class="btn" id="btn-clear-queue" style="font-size: 9px; padding: 2px 6px;">CLEAR</button>
+      `;
+      el.trackList.appendChild(queueHeader);
+      const clearBtn = queueHeader.querySelector('#btn-clear-queue');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          state.playQueue = [];
+          renderTrackList();
+          showToast('QUEUE CLEARED');
+        });
+      }
+
+      state.playQueue.forEach((track, qIdx) => {
+        const item = document.createElement('div');
+        item.className = 'track-item';
+        item.innerHTML = `
+          <div class="track-item-left">
+            <span style="font-family: var(--font-ndot); font-size: 10px; color: var(--accent-red); width: 16px;">${qIdx + 1}</span>
+            <div class="track-meta-wrap">
+              <div class="track-title">${track.title || track.name}</div>
+              <div class="track-artist">${track.artist || 'Unknown'} // ${track.album || 'Local'}</div>
+            </div>
+          </div>
+          <button class="btn" style="padding: 3px 8px; font-size: 9px;">PLAY</button>
+        `;
+        item.addEventListener('click', () => {
+          state.playQueue.splice(qIdx, 1);
+          playTrackById(track.id);
+        });
+        el.trackList.appendChild(item);
+      });
+      return;
+    }
+
     const tracks = getFilteredTracks();
 
     if (tracks.length === 0 && state.library.length > 0) {
@@ -355,6 +444,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="track-meta-right">
           <span>${formatBytes(track.size)}</span>
+          <button class="track-action-btn queue-add-btn" data-id="${track.id}" title="Add to Up Next Queue">
+            ${SVG_ICONS.queueAdd}
+          </button>
           <button class="fav-star-btn ${track.favorite ? 'active' : ''}" data-id="${track.id}" aria-label="Toggle favorite">
             ${SVG_ICONS.star}
           </button>
@@ -362,6 +454,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
 
       item.addEventListener('click', (e) => {
+        if (e.target.closest('.queue-add-btn')) {
+          e.stopPropagation();
+          triggerHaptic(15);
+          state.playQueue.push(track);
+          showToast(`[+] "${(track.title || track.name).slice(0, 20)}" QUEUED`);
+          return;
+        }
         if (e.target.closest('.fav-star-btn')) {
           e.stopPropagation();
           toggleFavorite(track.id);
@@ -459,14 +558,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (el.btnPlayPause) {
-      el.btnPlayPause.textContent = '⏸';
+      el.btnPlayPause.innerHTML = SVG_ICONS.pause;
       el.btnPlayPause.setAttribute('title', 'Pause (Space)');
+    }
+
+    // Update Floating Mini-Player
+    if (el.miniTrackTitle) el.miniTrackTitle.textContent = track.title || track.name;
+    if (el.miniTrackArtist) el.miniTrackArtist.textContent = `${track.artist || 'Unknown Artist'} // ${track.album || 'Local'}`;
+    if (el.miniAlbumArt) el.miniAlbumArt.src = track.picture || 'icon.svg';
+    if (el.miniBtnPlay) el.miniBtnPlay.innerHTML = SVG_ICONS.pause;
+
+    const activePanel = document.querySelector('.view-panel.active');
+    if (activePanel && activePanel.id !== 'view-player' && el.miniPlayerBar) {
+      el.miniPlayerBar.classList.add('visible');
+    }
+
+    if (el.lyricsCurrentLine) {
+      el.lyricsCurrentLine.textContent = `▶ ${(track.title || track.name).toUpperCase()}`;
     }
   }
 
   function playNextTrack() {
     triggerHaptic(15);
     if (state.library.length === 0) return;
+
+    if (state.playQueue.length > 0) {
+      const nextTrack = state.playQueue.shift();
+      const idx = state.library.findIndex(t => t.id === nextTrack.id);
+      if (idx !== -1) {
+        state.currentTrackIndex = idx;
+        loadAndPlayCurrentTrack();
+        return;
+      }
+    }
+
     if (state.isShuffle) {
       state.currentTrackIndex = Math.floor(Math.random() * state.library.length);
     } else {
@@ -494,11 +619,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   audioEngine.onTimeUpdate = (current, total) => {
     if (el.timeCurrent) el.timeCurrent.textContent = formatTime(current);
     if (el.timeTotal) el.timeTotal.textContent = formatTime(total);
-    if (el.seekSlider && total > 0) {
+    if (total > 0) {
       const pct = (current / total) * 100;
-      el.seekSlider.style.setProperty('--seek-pct', `${pct}%`);
-      if (!el.seekSlider.matches(':active')) {
-        el.seekSlider.value = (current / total) * 1000;
+      if (el.seekSlider) {
+        el.seekSlider.style.setProperty('--seek-pct', `${pct}%`);
+        if (!el.seekSlider.matches(':active')) {
+          el.seekSlider.value = (current / total) * 1000;
+        }
+      }
+      if (el.miniSeekLine) {
+        el.miniSeekLine.style.setProperty('--mini-progress', `${pct}%`);
       }
     }
   };
@@ -507,6 +637,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.repeatMode === 'one') {
       audioEngine.seek(0);
       audioEngine.play();
+    } else if (state.playQueue.length > 0) {
+      const nextTrack = state.playQueue.shift();
+      const idx = state.library.findIndex(t => t.id === nextTrack.id);
+      if (idx !== -1) {
+        state.currentTrackIndex = idx;
+        loadAndPlayCurrentTrack();
+      } else {
+        playNextTrack();
+      }
     } else if (state.repeatMode === 'all') {
       playNextTrack();
     } else {
@@ -522,6 +661,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.btnPlayPause) {
       el.btnPlayPause.innerHTML = isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
       el.btnPlayPause.classList.toggle('playing', isPlaying);
+    }
+    if (el.miniBtnPlay) {
+      el.miniBtnPlay.innerHTML = isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
     }
     if (el.albumArt) {
       el.albumArt.classList.toggle('playing', isPlaying);
@@ -1048,6 +1190,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewPanels.forEach((p) => {
       p.classList.toggle('active', p.id === targetId);
     });
+
+    if (el.miniPlayerBar) {
+      const isNowPlayingView = targetId === 'view-player';
+      const hasTrack = state.currentTrackIndex !== -1;
+      el.miniPlayerBar.classList.toggle('visible', !isNowPlayingView && hasTrack);
+    }
   }
 
   navTabs.forEach((tab) => {
@@ -1055,6 +1203,131 @@ document.addEventListener('DOMContentLoaded', async () => {
       switchTab(tab.dataset.target);
     });
   });
+
+  // Floating Mini-Player Bar Actions
+  if (el.miniPlayerBar) {
+    if (el.miniPlayerLeft) {
+      el.miniPlayerLeft.addEventListener('click', () => {
+        switchTab('view-player');
+      });
+    }
+    if (el.miniBtnPlay) {
+      el.miniBtnPlay.addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic(15);
+        audioEngine.togglePlay();
+      });
+    }
+    if (el.miniBtnNext) {
+      el.miniBtnNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playNextTrack();
+      });
+    }
+  }
+
+  // Spatial Acoustic Reverb Controls
+  if (el.reverbPills) {
+    el.reverbPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        triggerHaptic(15);
+        el.reverbPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const preset = pill.dataset.reverb;
+        audioEngine.setReverbPreset(preset);
+        showToast(`SPATIAL REVERB: ${preset.toUpperCase()}`);
+      });
+    });
+  }
+
+  if (el.reverbMixSlider) {
+    el.reverbMixSlider.addEventListener('input', () => {
+      const mix = parseFloat(el.reverbMixSlider.value) / 100;
+      if (el.reverbMixVal) el.reverbMixVal.textContent = `${Math.round(mix * 100)}%`;
+      audioEngine.setReverbMix(mix);
+    });
+  }
+
+  // Lyrics / HUD Display Toggle
+  if (el.btnToggleLyrics) {
+    el.btnToggleLyrics.addEventListener('click', () => {
+      triggerHaptic(15);
+      state.isLyricsOpen = !state.isLyricsOpen;
+      el.btnToggleLyrics.classList.toggle('active', state.isLyricsOpen);
+      if (el.lyricsDisplay) {
+        el.lyricsDisplay.classList.toggle('visible', state.isLyricsOpen);
+      }
+      showToast(state.isLyricsOpen ? 'LYRICS / HUD: ON' : 'LYRICS / HUD: OFF');
+    });
+  }
+
+  // Customization Center Modal & Theme Palettes
+  if (el.btnSettings && el.settingsModal) {
+    el.btnSettings.addEventListener('click', () => {
+      triggerHaptic(15);
+      el.settingsModal.classList.add('active');
+    });
+  }
+
+  if (el.btnSettingsClose && el.settingsModal) {
+    el.btnSettingsClose.addEventListener('click', () => {
+      triggerHaptic(15);
+      el.settingsModal.classList.remove('active');
+    });
+  }
+
+  const THEME_PALETTES = {
+    red: { color: '#d71921', glow: 'rgba(215, 25, 33, 0.4)', name: 'NOTHING RED' },
+    white: { color: '#ffffff', glow: 'rgba(255, 255, 255, 0.4)', name: 'DOT WHITE' },
+    amber: { color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)', name: 'CYBER AMBER' },
+    green: { color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)', name: 'MATRIX GREEN' },
+    cyan: { color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.4)', name: 'PULSE CYAN' }
+  };
+
+  if (el.themeColorBtns) {
+    el.themeColorBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        triggerHaptic(20);
+        el.themeColorBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const theme = btn.dataset.color || 'red';
+        const pal = THEME_PALETTES[theme] || THEME_PALETTES.red;
+        document.documentElement.style.setProperty('--accent-red', pal.color);
+        document.documentElement.style.setProperty('--accent-red-glow', pal.glow);
+        state.accentColor = pal.color;
+        if (el.themeColorLabel) el.themeColorLabel.textContent = pal.name;
+        showToast(`THEME: ${pal.name}`);
+      });
+    });
+  }
+
+  if (el.btnToggleMesh) {
+    el.btnToggleMesh.addEventListener('click', () => {
+      triggerHaptic(15);
+      state.ambientMeshEnabled = !state.ambientMeshEnabled;
+      el.btnToggleMesh.textContent = state.ambientMeshEnabled ? 'ON' : 'OFF';
+      el.btnToggleMesh.classList.toggle('active', state.ambientMeshEnabled);
+      if (el.ambientCanvas) {
+        el.ambientCanvas.style.display = state.ambientMeshEnabled ? 'block' : 'none';
+      }
+      showToast(state.ambientMeshEnabled ? 'KINETIC MESH: ON' : 'KINETIC MESH: OFF');
+    });
+  }
+
+  if (el.hapticSelect) {
+    el.hapticSelect.addEventListener('change', (e) => {
+      state.hapticStrength = e.target.value;
+      triggerHaptic(25);
+      showToast(`HAPTIC: ${state.hapticStrength.toUpperCase()}`);
+    });
+  }
+
+  if (el.crossfadeSelect) {
+    el.crossfadeSelect.addEventListener('change', (e) => {
+      state.crossfadeSec = parseFloat(e.target.value);
+      showToast(`CROSSFADE: ${state.crossfadeSec}s`);
+    });
+  }
 
   // 11. Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
@@ -1121,6 +1394,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.btnShortcutsClose.addEventListener('click', () => el.shortcutsModal.classList.remove('active'));
   }
 
+  // 12. Kinetic Ambient Dot-Matrix Mesh Canvas with Touch Ripple Physics
+  function initAmbientMesh() {
+    const canvas = el.ambientCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let width = 0;
+    let height = 0;
+    const ripples = [];
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    window.addEventListener('pointerdown', (e) => {
+      if (!state.ambientMeshEnabled) return;
+      ripples.push({
+        x: e.clientX,
+        y: e.clientY,
+        radius: 0,
+        maxRadius: Math.min(width, height) * 0.45,
+        alpha: 0.7,
+        speed: 4.5
+      });
+      if (ripples.length > 8) ripples.shift();
+    });
+
+    const spacing = 32;
+
+    function renderMesh() {
+      if (!state.ambientMeshEnabled) {
+        requestAnimationFrame(renderMesh);
+        return;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      let energy = 0;
+      if (audioEngine && audioEngine.analyser && !audioEngine.audio.paused) {
+        const freqData = new Uint8Array(16);
+        audioEngine.analyser.getByteFrequencyData(freqData);
+        let sum = 0;
+        for (let i = 0; i < 8; i++) sum += freqData[i];
+        energy = sum / (8 * 255);
+      }
+
+      const time = performance.now() * 0.0015;
+
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.radius += r.speed;
+        r.alpha -= 0.015;
+        if (r.alpha <= 0 || r.radius >= r.maxRadius) {
+          ripples.splice(i, 1);
+        }
+      }
+
+      const cols = Math.ceil(width / spacing);
+      const rows = Math.ceil(height / spacing);
+
+      for (let r = 0; r <= rows; r++) {
+        for (let c = 0; c <= cols; c++) {
+          const x = c * spacing;
+          const y = r * spacing;
+
+          const wave = Math.sin(x * 0.02 + time) * Math.cos(y * 0.02 + time * 0.7);
+          let dotRadius = 0.85 + (wave * 0.5 + 0.5) * (0.8 + energy * 2.2);
+          let alpha = 0.12 + (wave * 0.5 + 0.5) * 0.15 + energy * 0.25;
+
+          for (let i = 0; i < ripples.length; i++) {
+            const rip = ripples[i];
+            const dx = x - rip.x;
+            const dy = y - rip.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const delta = Math.abs(dist - rip.radius);
+            if (delta < 50) {
+              const boost = (1 - delta / 50) * rip.alpha;
+              dotRadius += boost * 3.5;
+              alpha = Math.min(1, alpha + boost * 0.6);
+            }
+          }
+
+          ctx.fillStyle = energy > 0.4 ? state.accentColor : '#ffffff';
+          ctx.globalAlpha = Math.min(1, Math.max(0, alpha));
+          ctx.beginPath();
+          ctx.arc(x, y, Math.max(0.5, dotRadius), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.globalAlpha = 1.0;
+      requestAnimationFrame(renderMesh);
+    }
+
+    requestAnimationFrame(renderMesh);
+  }
+
+  initAmbientMesh();
+
   // Initial load
   await reloadLibrary();
 });
+

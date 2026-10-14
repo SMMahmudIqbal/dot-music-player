@@ -16,6 +16,9 @@
 </head>
 <body>
 
+  <!-- Interactive Ambient Nothing OS Kinetic Dot Mesh Canvas -->
+  <canvas id="ambient-canvas" class="ambient-mesh-canvas"></canvas>
+
   <!-- Hidden File & Folder Inputs for Local Autoscan -->
   <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;" aria-label="Select directory">
   <input type="file" id="files-input" multiple accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.opus,.webm" style="display: none;" aria-label="Select audio files">
@@ -48,7 +51,10 @@
       <button class="btn btn-accent" id="btn-autoscan" title="Autoscan Device">
         <span>[·]</span> SCAN
       </button>
-      <button class="btn btn-icon" id="btn-shortcuts" title="Shortcuts (?)" aria-label="Keyboard Shortcuts">
+      <button class="btn btn-icon" id="btn-settings" title="Customization Center" aria-label="Settings & Themes" style="font-size: 11px; font-weight: 700;">
+        CFG
+      </button>
+      <button class="btn btn-icon" id="btn-shortcuts" title="Shortcuts (?)" aria-label="Keyboard Shortcuts" style="font-family: var(--font-ndot); font-weight: 700; font-size: 13px;">
         ?
       </button>
     </div>
@@ -69,6 +75,7 @@
           </div>
 
           <div style="display: flex; gap: 4px;">
+            <button class="btn" id="btn-toggle-lyrics" style="font-size: 9px; padding: 2px 7px;">LYRICS</button>
             <button class="btn" id="btn-cycle-vis" style="font-size: 9px; padding: 2px 7px;">CYCLE</button>
             <button class="btn" id="btn-vis-theme" style="font-size: 9px; padding: 2px 7px;">COLOR</button>
           </div>
@@ -80,6 +87,9 @@
           <button class="vis-tab-pill" data-mode="1">OSCILLO</button>
           <button class="vis-tab-pill" data-mode="2">STEREO VU</button>
           <button class="vis-tab-pill" data-mode="3">RAIN</button>
+          <button class="vis-tab-pill" data-mode="4">3D TUNNEL</button>
+          <button class="vis-tab-pill" data-mode="5">RADAR</button>
+          <button class="vis-tab-pill" data-mode="6">PARTICLES</button>
         </div>
 
         <!-- ASCII Screen Frame -->
@@ -88,6 +98,14 @@
  [·] DOT MUSIC // NOTHING OS
  OFFLINE AUDIO READY
           </pre>
+          <div class="lyrics-display-overlay" id="lyrics-display" style="display: none;">
+            <div class="lyrics-header">[·] SYNCED METADATA & LYRICS HUD</div>
+            <div class="lyrics-scroll-container" id="lyrics-scroll">
+              <div class="lyrics-line past">DOT AUDIO ENGINE // 100% OFFLINE</div>
+              <div class="lyrics-line current" id="lyrics-current-line">NOTHING OS ARCHITECTURE</div>
+              <div class="lyrics-line future">WAITING FOR LYRICS STREAM...</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -195,6 +213,7 @@
           <button class="tab-btn active" data-filter="all">ALL</button>
           <button class="tab-btn" data-filter="favorites">FAV</button>
           <button class="tab-btn" data-filter="folders">FOLDERS</button>
+          <button class="tab-btn" data-filter="queue">QUEUE</button>
         </div>
         <select class="sort-select" id="sort-select" aria-label="Sort library tracks">
           <option value="title-asc">SORT: TITLE (A-Z)</option>
@@ -359,6 +378,29 @@
         </div>
       </div>
 
+      <!-- Spatial Reverb & Acoustic Chamber Simulator -->
+      <div class="tuning-card reverb-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 600; letter-spacing: 1px;">SPATIAL ACOUSTIC REVERB</div>
+            <div style="font-size: 9px; color: var(--text-muted);">ALGORITHMIC CONVOLUTION SPACE</div>
+          </div>
+          <span id="reverb-current-badge" style="font-family: var(--font-ndot); font-size: 10px; color: var(--accent-red);">OFF</span>
+        </div>
+        <div class="preset-pills-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 8px;">
+          <button class="reverb-pill active" data-reverb="OFF">DRY</button>
+          <button class="reverb-pill" data-reverb="STUDIO">STUDIO</button>
+          <button class="reverb-pill" data-reverb="CHAMBER">CHAMBER</button>
+          <button class="reverb-pill" data-reverb="CONCERT">HALL</button>
+          <button class="reverb-pill" data-reverb="CATHEDRAL">CATHEDRAL</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 10px; color: var(--text-muted);">WET MIX</span>
+          <input type="range" class="vol-slider" id="reverb-mix-slider" min="0" max="100" value="30" aria-label="Reverb Wet Mix" style="flex: 1;">
+          <span id="reverb-mix-val" style="font-family: var(--font-ndot); font-size: 11px; min-width: 32px; text-align: right; color: var(--text-primary);">30%</span>
+        </div>
+      </div>
+
       <!-- Sleep Timer Widget -->
       <div class="widget-row">
         <div>
@@ -383,6 +425,32 @@
     </section>
 
   </main>
+
+  <!-- Floating Dock Mini-Player (Active on Library/Tuning views) -->
+  <div class="mini-player-bar" id="mini-player-bar">
+    <div class="mini-seek-line" id="mini-seek-line"></div>
+    <div class="mini-player-content">
+      <div class="mini-player-left" id="mini-player-left">
+        <img class="mini-album-art" id="mini-album-art" src="icon.svg" alt="Mini Art">
+        <div class="mini-track-meta">
+          <div class="mini-track-title" id="mini-track-title">READY TO PLAY</div>
+          <div class="mini-track-artist" id="mini-track-artist">TAP TO EXPAND</div>
+        </div>
+      </div>
+      <div class="mini-player-actions">
+        <button class="btn btn-icon mini-ctrl-btn" id="mini-btn-play" aria-label="Play or Pause">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="7,4 20,12 7,20"/>
+          </svg>
+        </button>
+        <button class="btn btn-icon mini-ctrl-btn" id="mini-btn-next" aria-label="Next Track">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="4,5 15,12 4,19"/><rect x="17.5" y="5" width="2.5" height="14" rx="0.8"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Nothing OS Mobile Bottom Navigation Bar -->
   <nav class="bottom-nav-bar">
@@ -455,6 +523,75 @@
 
       <div style="font-size: 9px; color: var(--text-muted); text-align: center;">
         100% OFFLINE LOCAL ARCHITECTURE — ZERO TELEMETRY
+      </div>
+    </div>
+  </div>
+
+  <!-- Nothing OS Customization Center Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card">
+      <div class="modal-title-bar">
+        <span>[·] CUSTOMIZATION MATRIX</span>
+        <button class="modal-close-btn" id="btn-settings-close" aria-label="Close modal">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Accent Color Selection -->
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 6px;">ACCENT COLOR PALETTE</div>
+        <div class="color-palette-grid">
+          <button class="theme-color-btn active" data-color="#e52b2b" data-name="NOTHING RED" style="background: #e52b2b;" title="Nothing Red"></button>
+          <button class="theme-color-btn" data-color="#f59e0b" data-name="CYBER AMBER" style="background: #f59e0b;" title="Cyber Amber"></button>
+          <button class="theme-color-btn" data-color="#10b981" data-name="MATRIX GREEN" style="background: #10b981;" title="Matrix Green"></button>
+          <button class="theme-color-btn" data-color="#06b6d4" data-name="ELECTRIC BLUE" style="background: #06b6d4;" title="Electric Blue"></button>
+          <button class="theme-color-btn" data-color="#ffffff" data-name="PURE WHITE" style="background: #ffffff;" title="Pure White"></button>
+        </div>
+        <div id="theme-color-label" style="font-family: var(--font-ndot); font-size: 9px; color: var(--accent-red); margin-top: 4px;">SELECTED: NOTHING RED</div>
+      </div>
+
+      <!-- Ambient Dot Mesh Toggle -->
+      <div class="widget-row" style="margin-bottom: 8px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 600;">AMBIENT KINETIC MESH</div>
+          <div style="font-size: 9px; color: var(--text-muted);">TOUCH RIPPLES & AUDIO REACTIVE PARTICLES</div>
+        </div>
+        <button class="btn btn-accent" id="btn-toggle-mesh" style="font-size: 10px; padding: 4px 10px;">ON</button>
+      </div>
+
+      <!-- Haptic Vibration Feedback -->
+      <div class="widget-row" style="margin-bottom: 8px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 600;">HAPTIC FEEDBACK</div>
+          <div style="font-size: 9px; color: var(--text-muted);">TACTILE BUTTON MOTOR RESPONSE</div>
+        </div>
+        <select id="haptic-select" class="btn" style="padding: 4px 8px; font-size: 10px;" aria-label="Haptic strength">
+          <option value="crisp">CRISP (20ms)</option>
+          <option value="subtle">SUBTLE (10ms)</option>
+          <option value="heavy">HEAVY (40ms)</option>
+          <option value="off">OFF</option>
+        </select>
+      </div>
+
+      <!-- Crossfade Transition -->
+      <div class="widget-row" style="margin-bottom: 8px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 600;">DJ CROSSFADE</div>
+          <div style="font-size: 9px; color: var(--text-muted);">SEAMLESS EXPONENTIAL TRACK BLEND</div>
+        </div>
+        <select id="crossfade-select" class="btn" style="padding: 4px 8px; font-size: 10px;" aria-label="Crossfade duration">
+          <option value="0">OFF</option>
+          <option value="2">2 SEC</option>
+          <option value="4">4 SEC</option>
+          <option value="6">6 SEC</option>
+          <option value="8">8 SEC</option>
+        </select>
+      </div>
+
+      <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-top: 8px;">
+        SETTINGS PERSIST LOCALLY IN INDEXEDDB / STORAGE
       </div>
     </div>
   </div>

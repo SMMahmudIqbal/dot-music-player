@@ -21,6 +21,11 @@ class AudioEngine {
     this.bassBoostFilter = null;
     this.bassBoostEnabled = false;
     this.bassBoostGain = 8;
+    this.reverbConvolver = null;
+    this.reverbDryGain = null;
+    this.reverbWetGain = null;
+    this.reverbPreset = 'OFF';
+    this.reverbMix = 0.3;
     this.compressor = null;
     this.masterGain = null;
 
@@ -133,8 +138,23 @@ class AudioEngine {
         currentNode = this.panner;
       }
 
+      // Spatial Reverb Convolver & Mixer
+      this.reverbConvolver = this.audioCtx.createConvolver();
+      this.reverbDryGain = this.audioCtx.createGain();
+      this.reverbWetGain = this.audioCtx.createGain();
+      this.reverbDryGain.gain.value = 1.0;
+      this.reverbWetGain.gain.value = 0.0;
+
       currentNode.connect(this.masterGain);
-      this.masterGain.connect(this.compressor);
+
+      // Split Master into Dry and Reverb Convolver paths -> Compressor
+      this.masterGain.connect(this.reverbDryGain);
+      this.reverbDryGain.connect(this.compressor);
+
+      this.masterGain.connect(this.reverbConvolver);
+      this.reverbConvolver.connect(this.reverbWetGain);
+      this.reverbWetGain.connect(this.compressor);
+
       this.compressor.connect(this.analyser);
       this.analyser.connect(this.audioCtx.destination);
 
@@ -296,6 +316,57 @@ class AudioEngine {
     }
   }
 
+  createImpulseResponse(durationSec, decay) {
+    if (!this.audioCtx) return null;
+    const sampleRate = this.audioCtx.sampleRate;
+    const length = Math.floor(sampleRate * durationSec);
+    const impulse = this.audioCtx.createBuffer(2, length, sampleRate);
+    const left = impulse.getChannelData(0);
+    const right = impulse.getChannelData(1);
+
+    for (let i = 0; i < length; i++) {
+      const env = Math.pow(1 - i / length, decay);
+      left[i] = (Math.random() * 2 - 1) * env;
+      right[i] = (Math.random() * 2 - 1) * env;
+    }
+    return impulse;
+  }
+
+  setReverbPreset(name) {
+    this.reverbPreset = (name || 'OFF').toUpperCase();
+    if (!this.audioCtx || !this.reverbConvolver || !this.reverbWetGain) return;
+
+    if (this.reverbPreset === 'OFF') {
+      this.reverbWetGain.gain.setTargetAtTime(0, this.audioCtx.currentTime, 0.03);
+      this.reverbDryGain.gain.setTargetAtTime(1.0, this.audioCtx.currentTime, 0.03);
+      return;
+    }
+
+    let duration = 1.2;
+    let decay = 2.0;
+    if (this.reverbPreset === 'STUDIO') { duration = 0.45; decay = 3.2; }
+    else if (this.reverbPreset === 'CHAMBER') { duration = 1.5; decay = 2.2; }
+    else if (this.reverbPreset === 'CONCERT') { duration = 3.0; decay = 1.6; }
+    else if (this.reverbPreset === 'CATHEDRAL') { duration = 5.2; decay = 1.2; }
+
+    try {
+      this.reverbConvolver.buffer = this.createImpulseResponse(duration, decay);
+      const wet = this.reverbMix;
+      this.reverbWetGain.gain.setTargetAtTime(wet, this.audioCtx.currentTime, 0.03);
+      this.reverbDryGain.gain.setTargetAtTime(1.0 - (wet * 0.3), this.audioCtx.currentTime, 0.03);
+    } catch (e) {
+      console.warn('Reverb impulse assignment error:', e);
+    }
+  }
+
+  setReverbMix(mixPct) {
+    this.reverbMix = Math.max(0, Math.min(1, mixPct));
+    if (this.audioCtx && this.reverbWetGain && this.reverbPreset !== 'OFF') {
+      this.reverbWetGain.gain.setTargetAtTime(this.reverbMix, this.audioCtx.currentTime, 0.02);
+      this.reverbDryGain.gain.setTargetAtTime(1.0 - (this.reverbMix * 0.3), this.audioCtx.currentTime, 0.02);
+    }
+  }
+
   getAudioTelemetry() {
     const isCtx = !!(this.audioCtx && this.isInitialized);
     const vu = this.getStereoVU();
@@ -310,7 +381,9 @@ class AudioEngine {
       rmsL: vu.left,
       rmsR: vu.right,
       bassBoostActive: this.bassBoostEnabled,
-      bassBoostGain: this.bassBoostGain
+      bassBoostGain: this.bassBoostGain,
+      reverbPreset: this.reverbPreset,
+      reverbMix: this.reverbMix
     };
   }
 

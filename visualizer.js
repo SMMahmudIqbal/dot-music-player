@@ -13,7 +13,10 @@ class AsciiVisualizer {
       'NOTHING DOT SPECTRUM',
       'CYBER OSCILLOSCOPE',
       'DUAL STEREO VU METER',
-      'MATRIX CYBER RAIN'
+      'MATRIX CYBER RAIN',
+      'CYBER TUNNEL 3D',
+      'RADAR SONAR 360',
+      'PARTICLE FOUNTAIN'
     ];
 
     this.frame = 0;
@@ -113,6 +116,15 @@ class AsciiVisualizer {
         break;
       case 3:
         asciiOutput = this.renderMatrixRain(isPlaying);
+        break;
+      case 4:
+        asciiOutput = this.renderTunnel3D(isPlaying);
+        break;
+      case 5:
+        asciiOutput = this.renderRadarSonar(isPlaying);
+        break;
+      case 6:
+        asciiOutput = this.renderParticleFountain(isPlaying);
         break;
       default:
         asciiOutput = this.renderDotSpectrum(isPlaying);
@@ -524,6 +536,186 @@ class AsciiVisualizer {
 
     lines.push(' └' + '─'.repeat(width + 2) + '┘');
     lines.push('  NEURAL STREAM // 100% OFFLINE');
+    return lines.join('\n');
+  }
+
+  /**
+   * Mode 4: Cyber Tunnel 3D (Isometric Perspective Wireframe)
+   */
+  renderTunnel3D(isPlaying) {
+    const rawData = this.audioEngine.getFrequencyData();
+    let bass = 0;
+    for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
+    bass = bass / (6 * 255);
+    if (!isPlaying) bass = 0.12 + 0.08 * Math.sin(this.frame * 0.05);
+
+    const mobile = this.isMobile();
+    const rows = mobile ? 9 : 11;
+    const cols = mobile ? 34 : 48;
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+
+    // 4 concentric tunnel rings
+    const ringCount = 4;
+    const pulseOffset = (this.frame * 0.2) % 1;
+
+    for (let r = 0; r < ringCount; r++) {
+      const depth = (r + pulseOffset) / ringCount;
+      const rx = Math.floor(depth * (cx - 2) * (1 + bass * 0.35));
+      const ry = Math.floor(depth * (cy - 1) * (1 + bass * 0.35));
+
+      for (let x = -rx; x <= rx; x++) {
+        const py1 = cy - ry;
+        const py2 = cy + ry;
+        const px = cx + x;
+        if (px >= 0 && px < cols) {
+          if (py1 >= 0 && py1 < rows) grid[py1][px] = (r === ringCount - 1) ? '═' : '─';
+          if (py2 >= 0 && py2 < rows) grid[py2][px] = (r === ringCount - 1) ? '═' : '─';
+        }
+      }
+
+      for (let y = -ry; y <= ry; y++) {
+        const px1 = cx - rx;
+        const px2 = cx + rx;
+        const py = cy + y;
+        if (py >= 0 && py < rows) {
+          if (px1 >= 0 && px1 < cols) grid[py][px1] = '│';
+          if (px2 >= 0 && px2 < cols) grid[py][px2] = '│';
+        }
+      }
+    }
+
+    // Center pulsating core dot
+    if (cy >= 0 && cy < rows && cx >= 0 && cx < cols) {
+      grid[cy][cx] = bass > 0.4 ? '●' : '·';
+    }
+
+    const lines = [];
+    lines.push(` [·] 3D CYBER TUNNEL // DEPTH: ${Math.round((1 + bass) * 100)}%`);
+    lines.push(' ┌' + '─'.repeat(cols) + '┐');
+    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
+    lines.push(' └' + '─'.repeat(cols) + '┘');
+    lines.push('  WARP ACCELERATION // 100% OFFLINE');
+    return lines.join('\n');
+  }
+
+  /**
+   * Mode 5: Radar Sonar 360 (Rotating Polar Scan Line)
+   */
+  renderRadarSonar(isPlaying) {
+    const rawData = this.audioEngine.getFrequencyData();
+    const mobile = this.isMobile();
+    const rows = mobile ? 9 : 11;
+    const cols = mobile ? 34 : 46;
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+    const sweepAngle = (this.frame * 0.08) % (Math.PI * 2);
+
+    // Draw outer circular radar boundary
+    const radX = cx - 3;
+    const radY = cy - 1;
+    for (let a = 0; a < Math.PI * 2; a += 0.15) {
+      const px = Math.round(cx + Math.cos(a) * radX);
+      const py = Math.round(cy + Math.sin(a) * radY);
+      if (px >= 0 && px < cols && py >= 0 && py < rows) {
+        grid[py][px] = '·';
+      }
+    }
+
+    // Draw rotating sweep line
+    for (let d = 0; d <= 1; d += 0.08) {
+      const px = Math.round(cx + Math.cos(sweepAngle) * radX * d);
+      const py = Math.round(cy + Math.sin(sweepAngle) * radY * d);
+      if (px >= 0 && px < cols && py >= 0 && py < rows) {
+        grid[py][px] = (d > 0.7) ? '●' : '•';
+      }
+    }
+
+    // Audio reactive blips along angle
+    for (let b = 0; b < 12; b++) {
+      const val = (rawData[b * 3] || 0) / 255;
+      if (val > 0.3 || !isPlaying) {
+        const blipAngle = (b / 12) * Math.PI * 2;
+        const dist = 0.3 + (val * 0.6);
+        const bx = Math.round(cx + Math.cos(blipAngle) * radX * dist);
+        const by = Math.round(cy + Math.sin(blipAngle) * radY * dist);
+        if (bx >= 0 && bx < cols && by >= 0 && by < rows) {
+          grid[by][bx] = isPlaying && val > 0.6 ? '●' : ':';
+        }
+      }
+    }
+
+    // Center radar hub
+    if (cy >= 0 && cy < rows && cx >= 0 && cx < cols) grid[cy][cx] = '+';
+
+    const lines = [];
+    lines.push(` [·] 360° SONAR RADAR // SWEEP: ${Math.round((sweepAngle / (Math.PI * 2)) * 360)}°`);
+    lines.push(' ┌' + '─'.repeat(cols) + '┐');
+    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
+    lines.push(' └' + '─'.repeat(cols) + '┘');
+    lines.push('  ACOUSTIC ECHOLOCATION ACTIVE');
+    return lines.join('\n');
+  }
+
+  /**
+   * Mode 6: Particle Fountain
+   */
+  renderParticleFountain(isPlaying) {
+    const rawData = this.audioEngine.getFrequencyData();
+    let bass = 0;
+    for (let i = 0; i < 4; i++) bass += rawData[i] || 0;
+    bass = bass / (4 * 255);
+
+    const mobile = this.isMobile();
+    const rows = mobile ? 9 : 11;
+    const cols = mobile ? 34 : 46;
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+
+    if (!this.particles) {
+      this.particles = Array.from({ length: 28 }, () => ({
+        x: Math.floor(cols / 2),
+        y: rows - 1,
+        vx: (Math.random() * 2 - 1) * 1.5,
+        vy: -Math.random() * 2 - 1,
+        life: 0
+      }));
+    }
+
+    const cx = Math.floor(cols / 2);
+
+    this.particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.25; // gravity
+      p.life++;
+
+      const px = Math.round(p.x);
+      const py = Math.round(p.y);
+
+      if (px >= 0 && px < cols && py >= 0 && py < rows) {
+        grid[py][px] = p.life < 3 ? '●' : (p.life < 6 ? '•' : '·');
+      }
+
+      if (p.y >= rows || p.life > 14 || p.x < 0 || p.x >= cols) {
+        p.x = cx + (Math.random() * 6 - 3);
+        p.y = rows - 1;
+        const kick = isPlaying ? 1 + bass * 2 : 1;
+        p.vx = (Math.random() * 2 - 1) * (1.2 * kick);
+        p.vy = -(1.5 + Math.random() * 2.2) * (kick * 0.8);
+        p.life = 0;
+      }
+    });
+
+    const lines = [];
+    lines.push(` [·] PARTICLE FOUNTAIN // KICK: ${Math.round(bass * 100)}%`);
+    lines.push(' ┌' + '─'.repeat(cols) + '┐');
+    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
+    lines.push(' └' + '─'.repeat(cols) + '┘');
+    lines.push('  PHYSICS KINETICS // 60 FPS');
     return lines.join('\n');
   }
 }
