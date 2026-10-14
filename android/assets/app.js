@@ -270,6 +270,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (idx !== -1) {
       state.currentTrackIndex = idx;
       await loadAndPlayCurrentTrack();
+      if (window.innerWidth < 1024) {
+        switchTab('view-player');
+      }
     }
   }
 
@@ -812,20 +815,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Mobile Drawer Toggle Bindings
-  if (el.btnToggleLibrary && el.sidebarPanel) {
-    el.btnToggleLibrary.addEventListener('click', () => {
-      el.sidebarPanel.classList.toggle('open-panel');
-      if (el.tuningPanel) el.tuningPanel.classList.remove('open-panel');
+  // Mobile Bottom Navigation Tab Switching
+  const navTabs = document.querySelectorAll('.nav-tab-btn');
+  const viewPanels = document.querySelectorAll('.view-panel');
+
+  function switchTab(targetId) {
+    navTabs.forEach((t) => {
+      t.classList.toggle('active', t.dataset.target === targetId);
+    });
+    viewPanels.forEach((p) => {
+      p.classList.toggle('active', p.id === targetId);
     });
   }
 
-  if (el.btnToggleEq && el.tuningPanel) {
-    el.btnToggleEq.addEventListener('click', () => {
-      el.tuningPanel.classList.toggle('open-panel');
-      if (el.sidebarPanel) el.sidebarPanel.classList.remove('open-panel');
+  navTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      switchTab(tab.dataset.target);
     });
-  }
+  });
 
   // 11. Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {

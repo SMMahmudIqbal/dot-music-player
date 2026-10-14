@@ -52,8 +52,12 @@ public class MainActivity extends Activity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        settings.setSupportZoom(false);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(false);
 
         mWebView.setBackgroundColor(0xFF070707);
+        mWebView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
 
         mWebView.setWebViewClient(new WebViewClient() {
             @Override

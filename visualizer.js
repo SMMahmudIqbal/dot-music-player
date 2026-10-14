@@ -1,6 +1,6 @@
 /**
- * Real-Time ASCII Audio Animation Engine
- * Dot Music Player - 100% Offline
+ * Real-Time ASCII Audio Animation Engine - Mobile-Optimized & Desktop Responsive
+ * Dot Music Player - 100% Offline Nothing OS
  * Author: Developed by S. M. Mahmud Iqbal
  */
 
@@ -32,10 +32,14 @@ class AsciiVisualizer {
     this.vuPeakR = 0;
 
     // Matrix Rain drops
-    this.rainColumns = 48;
-    this.rainDrops = Array.from({ length: this.rainColumns }, () => Math.floor(Math.random() * 12));
+    this.rainColumns = 32;
+    this.rainDrops = Array.from({ length: this.rainColumns }, () => Math.floor(Math.random() * 10));
 
     this.colorTheme = 'mono'; // 'mono', 'red', 'green', 'amber'
+  }
+
+  isMobile() {
+    return window.innerWidth <= 600;
   }
 
   setMode(modeIndex) {
@@ -111,15 +115,15 @@ class AsciiVisualizer {
   }
 
   /**
-   * Mode 0: Nothing OS Dot Matrix Spectrum Analyzer
+   * Mode 0: Nothing OS Dot Matrix Spectrum Analyzer (Mobile-safe width)
    */
   renderDotSpectrum(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
-    const bandsCount = 28;
-    const height = 12;
+    const mobile = this.isMobile();
+    const bandsCount = mobile ? 16 : 28;
+    const height = mobile ? 9 : 11;
     const dotLevels = [' ', '·', ':', '•', 'o', 'O', '8', '●'];
 
-    // Downsample frequency data into musical logarithm-spaced bands
     const bandValues = [];
     const step = Math.max(1, Math.floor(rawData.length / (bandsCount * 1.5)));
 
@@ -133,38 +137,43 @@ class AsciiVisualizer {
       }
       let val = count > 0 ? (sum / count) / 255 : 0;
       
-      // If idle/paused, show a subtle breathing dot wave
       if (!isPlaying) {
-        val = 0.08 + 0.05 * Math.sin((this.frame * 0.04) + (b * 0.25));
+        val = 0.08 + 0.05 * Math.sin((this.frame * 0.04) + (b * 0.3));
       }
       bandValues.push(val);
 
-      // Peak hold calculation
       if (val >= (this.peakLevels[b] || 0)) {
         this.peakLevels[b] = val;
         this.peakDecay[b] = 0;
       } else {
-        this.peakDecay[b] = (this.peakDecay[b] || 0) + 0.012;
+        this.peakDecay[b] = (this.peakDecay[b] || 0) + 0.015;
         this.peakLevels[b] = Math.max(0, this.peakLevels[b] - this.peakDecay[b]);
       }
     }
 
     const lines = [];
-    const statusText = isPlaying ? 'ACTIVE AUDIO STREAM' : 'STANDBY // IDLE RADAR';
-    lines.push(` [·] NOTHING DOT SPECTRUM // 32Hz-16kHz [STATUS: ${statusText}]`);
-    lines.push(' ┌────────────────────────────────────────────────────────────┐');
+    const innerWidth = bandsCount * 2;
+    const border = '─'.repeat(innerWidth + 1);
+
+    if (mobile) {
+      lines.push(' [·] DOT SPECTRUM FFT [32Hz-16kHz]');
+      lines.push(' ┌' + border + '┐');
+    } else {
+      lines.push(' [·] NOTHING DOT SPECTRUM // 32Hz-16kHz');
+      lines.push(' ┌' + border + '┐');
+    }
 
     for (let row = height - 1; row >= 0; row--) {
       const rowThreshold = (row + 1) / height;
       const prevThreshold = row / height;
-      let line = ' │ ';
+      let line = ' │';
 
       for (let b = 0; b < bandsCount; b++) {
         const val = bandValues[b];
         const peak = this.peakLevels[b] || 0;
         const isPeakRow = Math.abs(peak - rowThreshold) < (0.5 / height);
 
-        if (isPeakRow && peak > 0.12 && isPlaying) {
+        if (isPeakRow && peak > 0.15 && isPlaying) {
           line += '─ ';
         } else if (val >= rowThreshold) {
           line += '● ';
@@ -180,39 +189,40 @@ class AsciiVisualizer {
       lines.push(line);
     }
 
-    lines.push(' ├────────────────────────────────────────────────────────────┤');
-    lines.push(' │ 32  64  125 250 500  1K  2K  3K  4K  6K  8K  12K 16K [NOTHING] │');
-    lines.push(' └────────────────────────────────────────────────────────────┘');
+    lines.push(' ├' + border + '┤');
+    if (mobile) {
+      lines.push(' │ 32 64 125 250 1K 2K 4K 8K 16K │');
+    } else {
+      lines.push(' │ 32  64  125 250 500  1K  2K  3K  4K  6K  8K  12K 16K  │');
+    }
+    lines.push(' └' + border + '┘');
 
     return lines.join('\n');
   }
 
   /**
-   * Mode 1: Retro Reel-to-Reel Cassette Tape
+   * Mode 1: Retro Reel Cassette Tape (Mobile-safe 36 chars)
    */
   renderCassetteTape(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
     let bass = 0;
-    for (let i = 0; i < 8; i++) bass += rawData[i] || 0;
-    bass = bass / (8 * 255);
+    for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
+    bass = bass / (6 * 255);
 
     if (isPlaying) {
       this.spoolAngle += 0.2 + (bass * 0.2);
     }
 
     const spokes = ['|', '/', '-', '\\'];
-    const spoolIndex1 = Math.floor(this.spoolAngle) % spokes.length;
-    const spoolIndex2 = Math.floor(this.spoolAngle * 1.05) % spokes.length;
-
-    const s1 = isPlaying ? spokes[spoolIndex1] : '|';
-    const s2 = isPlaying ? spokes[spoolIndex2] : '|';
+    const s1 = isPlaying ? spokes[Math.floor(this.spoolAngle) % 4] : '|';
+    const s2 = isPlaying ? spokes[Math.floor(this.spoolAngle * 1.05) % 4] : '|';
 
     const curTime = this.audioEngine.audio.currentTime || 0;
     const durTime = this.audioEngine.audio.duration || 1;
     const progress = Math.max(0, Math.min(1, curTime / durTime));
 
-    const leftTapeSpool = progress < 0.5 ? '( ( ● ) )' : '(  ●  )';
-    const rightTapeSpool = progress > 0.5 ? '( ( ● ) )' : '(  ●  )';
+    const leftSpool = progress < 0.5 ? '( (●) )' : '( ● )';
+    const rightSpool = progress > 0.5 ? '( (●) )' : '( ● )';
 
     const formatTime = (t) => {
       const m = Math.floor(t / 60);
@@ -220,26 +230,35 @@ class AsciiVisualizer {
       return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const tapeVibe = isPlaying && bass > 0.45 ? '~' : '-';
+    if (this.isMobile()) {
+      return [
+        ` /================================\\`,
+        ` | [DOT MUSIC]   TYPE-II CHROME o |`,
+        ` | +----------------------------+ |`,
+        ` | | ( ${s1} )   [${formatTime(curTime)}/${formatTime(durTime)}]   ( ${s2} ) | |`,
+        ` | | ${leftSpool}  ============  ${rightSpool} | |`,
+        ` | |     [·] MAGNETIC STEREO    | |`,
+        ` | +----------------------------+ |`,
+        ` |  DOLBY B-C NR  |  NOTHING OS   |`,
+        ` \\================================/`
+      ].join('\n');
+    }
 
     return [
-      ` /===============================================================\\`,
-      ` |  [DOT MUSIC]      :: TYPE-II HIGH BIAS / CHROME ::        [o]  |`,
-      ` | +-----------------------------------------------------------+ |`,
-      ` | |  .---.                                             .---.  | |`,
-      ` | | (  ${s1}  )    ${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}[ TAPE COUNTER ]${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}${tapeVibe}    (  ${s2}  ) | |`,
-      ` | |  '---'                   [ ${formatTime(curTime)} / ${formatTime(durTime)} ]                   '---'  | |`,
-      ` | | ${leftTapeSpool}       ==============================       ${rightTapeSpool} | |`,
-      ` | |                 [·] MAGNETIC HIGH RESOLUTION                 | |`,
-      ` | |  ( O )          [STATUS: ${isPlaying ? 'PLAYING // TAPE MOTOR ON' : 'MOTOR STOPPED // IDLE '}]        ( O ) | |`,
-      ` | +-----------------------------------------------------------+ |`,
-      ` |   [A] SIDE   |  DOLBY B-C NR  |  OFFLINE STEREO  |  NOTHING OS  |`,
-      ` \\===============================================================/`
+      ` /==========================================\\`,
+      ` | [DOT MUSIC]      :: TYPE-II CHROME ::  o |`,
+      ` | +--------------------------------------+ |`,
+      ` | |  ( ${s1} )    [ TAPE: ${formatTime(curTime)} / ${formatTime(durTime)} ]    ( ${s2} ) | |`,
+      ` | | ${leftSpool}    ====================    ${rightSpool} | |`,
+      ` | |        [·] MAGNETIC HIGH DEFINITION  | |`,
+      ` | +--------------------------------------+ |`,
+      ` |   [A] SIDE   |  OFFLINE STEREO  | NOTHING|`,
+      ` \\==========================================/`
     ].join('\n');
   }
 
   /**
-   * Mode 2: Animated ASCII Vinyl Turntable
+   * Mode 2: Vinyl Turntable (Mobile-safe 36 chars)
    */
   renderVinylTurntable(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
@@ -254,47 +273,55 @@ class AsciiVisualizer {
     const curTime = this.audioEngine.audio.currentTime || 0;
     const durTime = this.audioEngine.audio.duration || 1;
     const progress = Math.max(0, Math.min(1, curTime / durTime));
+    const armVibe = isPlaying && bass > 0.4 ? '•' : '=';
 
-    const armVibe = isPlaying && bass > 0.4 ? '•' : '═';
+    if (this.isMobile()) {
+      return [
+        ` +------- DIRECT DRIVE TURNTABLE -------+`,
+        ` |         . - ~ ~ ~ - .      [ARM 33]  |`,
+        ` |       . '  /~~~~~\\  ' .      ┌─┐     |`,
+        ` |      /   (  /~~~\\  )   \\     │O│(PIV)|`,
+        ` |     |   ( ( [·] ) ) )   |====${armVibe}=>[H] |`,
+        ` |      \\   (  \\___/  )   /      ▼ (NDL)|`,
+        ` |       . _  \\_____/  _ .    [${Math.round(progress*100)}% GROV] |`,
+        ` |         ' - _ _ _ - '      [${isPlaying ? 'PLAY' : 'IDLE'}]     |`,
+        ` +--------------------------------------+`
+      ].join('\n');
+    }
 
     return [
-      ` +----------------- NOTHING OS DIRECT DRIVE TURNTABLE -----------------+`,
-      ` |                                                                   |`,
-      ` |              . - ~ ~ ~ ~ ~ ~ ~ ~ - .           [TONEARM 33 RPM]   |`,
-      ` |          . '     /~~~~~~~~~~~~~\\     ' .          ┌───┐           |`,
-      ` |        /       (   /~~~~~~~~~\\   )       \\        │ O │ (PIVOT)   |`,
-      ` |       /      (   (    /~~~\\    )   )      \\       └─┬─┘           |`,
-      ` |      |      (   (   ( [·] )   )   )      |        ${armVibe}             |`,
-      ` |      |      |   |   | ( * ) |   |   |      |===---====${armVibe}====> [HEAD]  |`,
-      ` |      |      (   (   ( [·] )   )   )      |            │ (NEEDLE)  |`,
-      ` |       \\      (   (    \\___/    )   )      /            ▼           |`,
-      ` |        \\       (   \\_________/   )       /         [GROOVE: ${Math.round(progress * 100)}%]   |`,
-      ` |          . _     \\_____________/     _ .           [STATUS: ${isPlaying ? 'SPINNING' : 'STOPPED'}]  |`,
-      ` |              ' - _ _ _ _ _ _ _ _ - '               [DRIVE: 0.00% WF]|`,
-      ` +-------------------------------------------------------------------+`
+      ` +----------------- DIRECT DRIVE TURNTABLE -----------------+`,
+      ` |              . - ~ ~ ~ ~ ~ ~ ~ - .        [TONEARM 33]   |`,
+      ` |          . '     /~~~~~~~~~\\     ' .         ┌───┐       |`,
+      ` |        /       (   /~~~~~\\   )       \\       │ O │       |`,
+      ` |       |       (   ( [·*·] )   )       |======${armVibe}====>[H]|`,
+      ` |        \\       (   \\_____/   )       /         ▼ (NEEDLE)|`,
+      ` |          . _     \\_________/     _ .         [GROOVE: ${Math.round(progress * 100)}%] |`,
+      ` |              ' - _ _ _ _ _ _ _ - '           [NOTHING OS]|`,
+      ` +----------------------------------------------------------+`
     ].join('\n');
   }
 
   /**
-   * Mode 3: Cyber Oscilloscope (Time Domain Waveform)
+   * Mode 3: Cyber Oscilloscope
    */
   renderOscilloscope(isPlaying) {
     const wave = this.audioEngine.getTimeDomainData();
-    const width = 60;
-    const height = 11;
+    const mobile = this.isMobile();
+    const width = mobile ? 34 : 54;
+    const height = mobile ? 9 : 11;
     const grid = Array.from({ length: height }, () => Array(width).fill(' '));
     const midY = Math.floor(height / 2);
 
     if (isPlaying) {
       for (let x = 0; x < width; x++) {
         const sampleIdx = Math.floor((x / width) * wave.length);
-        const norm = (wave[sampleIdx] - 128) / 128; // -1.0 to 1.0
+        const norm = (wave[sampleIdx] - 128) / 128;
         let y = midY - Math.round(norm * (height / 2.2));
         y = Math.max(0, Math.min(height - 1, y));
         grid[y][x] = norm > 0.05 || norm < -0.05 ? '█' : '─';
       }
     } else {
-      // Idle gentle radar sweep
       const sweepX = Math.floor((this.frame * 0.8) % width);
       for (let x = 0; x < width; x++) {
         grid[midY][x] = x === sweepX ? '●' : '─';
@@ -302,12 +329,12 @@ class AsciiVisualizer {
     }
 
     const lines = [];
-    lines.push(' [·] DUAL TRACE PHOSPHOR OSCILLOSCOPE // 100% OFFLINE ANALOG PROBE');
+    lines.push(' [·] DUAL TRACE PHOSPHOR OSCILLOSCOPE');
     lines.push(' ┌' + '─'.repeat(width + 2) + '┐');
     for (let r = 0; r < height; r++) {
       let line = ' │ ';
       for (let c = 0; c < width; c++) {
-        if (grid[r][c] === ' ' && (r === midY || c % 12 === 0)) {
+        if (grid[r][c] === ' ' && (r === midY || c % 8 === 0)) {
           line += '·';
         } else {
           line += grid[r][c];
@@ -317,16 +344,17 @@ class AsciiVisualizer {
       lines.push(line);
     }
     lines.push(' └' + '─'.repeat(width + 2) + '┘');
-    lines.push('  VOLTS/DIV: 50mV  TIME/DIV: 2.0ms  COUPLING: AC  TRIGGER: AUTO');
+    lines.push(mobile ? ' TIME/DIV: 2.0ms  TRIGGER: AUTO' : ' VOLTS: 50mV  TIME/DIV: 2.0ms  TRIGGER: AUTO');
     return lines.join('\n');
   }
 
   /**
-   * Mode 4: Dual Analog Stereo VU Meters
+   * Mode 4: Stereo VU Meters
    */
   renderStereoVU(isPlaying) {
     const vu = isPlaying ? this.audioEngine.getStereoVU() : { left: 0.02, right: 0.02, peakL: 0.02, peakR: 0.02 };
-    const meterWidth = 36;
+    const mobile = this.isMobile();
+    const meterWidth = mobile ? 20 : 32;
 
     this.vuNeedleL += (vu.left - this.vuNeedleL) * 0.25;
     this.vuNeedleR += (vu.right - this.vuNeedleR) * 0.25;
@@ -350,25 +378,35 @@ class AsciiVisualizer {
       return str;
     };
 
-    const dbL = this.vuNeedleL > 0.01 ? (20 * Math.log10(this.vuNeedleL)).toFixed(1) : '-INF';
-    const dbR = this.vuNeedleR > 0.01 ? (20 * Math.log10(this.vuNeedleR)).toFixed(1) : '-INF';
+    const dbL = this.vuNeedleL > 0.01 ? (20 * Math.log10(this.vuNeedleL)).toFixed(0) : '-INF';
+    const dbR = this.vuNeedleR > 0.01 ? (20 * Math.log10(this.vuNeedleR)).toFixed(0) : '-INF';
 
-    const clipL = this.vuPeakL > 0.95 ? '[OVERLOAD]' : '  [NORMAL]';
-    const clipR = this.vuPeakR > 0.95 ? '[OVERLOAD]' : '  [NORMAL]';
+    if (mobile) {
+      return [
+        ` /========== STEREO VU METER ==========\\`,
+        ` |                                     |`,
+        ` | [L] -20  -10   -5   0  +3 [dB]      |`,
+        ` | [${makeBar(this.vuNeedleL, this.vuPeakL)}] ${dbL}dB |`,
+        ` |                                     |`,
+        ` | [R] -20  -10   -5   0  +3 [dB]      |`,
+        ` | [${makeBar(this.vuNeedleR, this.vuPeakR)}] ${dbR}dB |`,
+        ` |                                     |`,
+        ` | 0VU = +4dBu   BALLISTICS: ANSI C16  |`,
+        ` \\=====================================/`
+      ].join('\n');
+    }
 
     return [
-      ` /================= NOTHING OS PRECISION STEREO VU =================\\`,
-      ` |                                                                  |`,
-      ` |  CHANNEL LEFT (L)                                                |`,
-      ` |  -20   -10    -7    -5    -3    -1     0    +1    +2    +3 [dB]   |`,
-      ` |  [${makeBar(this.vuNeedleL, this.vuPeakL)}] ${dbL}dB ${clipL} |`,
-      ` |                                                                  |`,
-      ` |  CHANNEL RIGHT (R)                                               |`,
-      ` |  -20   -10    -7    -5    -3    -1     0    +1    +2    +3 [dB]   |`,
-      ` |  [${makeBar(this.vuNeedleR, this.vuPeakR)}] ${dbR}dB ${clipR} |`,
-      ` |                                                                  |`,
-      ` |  BALLISTICS: ANSI C16.5-1954   INTEGRATION: 300ms   REF: 0VU = 4dBu|`,
-      ` \\==================================================================/`
+      ` /================= NOTHING OS STEREO VU =================\\`,
+      ` |                                                        |`,
+      ` |  CH-L  -20   -10    -5    -1     0    +2    +3 [dB]    |`,
+      ` |  [${makeBar(this.vuNeedleL, this.vuPeakL)}] ${dbL}dB       |`,
+      ` |                                                        |`,
+      ` |  CH-R  -20   -10    -5    -1     0    +2    +3 [dB]    |`,
+      ` |  [${makeBar(this.vuNeedleR, this.vuPeakR)}] ${dbR}dB       |`,
+      ` |                                                        |`,
+      ` |  INTEGRATION: 300ms   REF: 0VU = 4dBu   NOTHING OS     |`,
+      ` \\========================================================/`
     ].join('\n');
   }
 
@@ -394,7 +432,26 @@ class AsciiVisualizer {
     }
 
     const glyphChar = (level, thresh) => (level > thresh ? '●' : '·');
-    const ring = (l) => (l > 0.35 ? '████' : '░░░░');
+    const ring = (l) => (l > 0.35 ? '███' : '░░░');
+
+    if (this.isMobile()) {
+      return [
+        ` +------- NOTHING GLYPH MATRIX -------+`,
+        ` |                                    |`,
+        ` |      (CAMERA)       (SLASH)        |`,
+        ` |       .---.          \\ \\           |`,
+        ` |      | ${ring(treble)} |          \\ \\ [${Math.round(mid*100)}%]     |`,
+        ` |       '---'                        |`,
+        ` |                 .---.              |`,
+        ` |                /     \\             |`,
+        ` |               | B:${Math.round(bass*100)}% | [${glyphChar(bass,0.4)}]        |`,
+        ` |                \\     /             |`,
+        ` |                 '---'              |`,
+        ` |                   │ [${glyphChar(bass,0.5)}]            |`,
+        ` |                   ● (DOT)          |`,
+        ` +------------------------------------+`
+      ].join('\n');
+    }
 
     return [
       ` +-------------------- NOTHING GLYPH MATRIX LIGHTS --------------------+`,
@@ -403,16 +460,12 @@ class AsciiVisualizer {
       ` |             .-----.                    \\ \\                         |`,
       ` |            /  ${ring(treble)}  \\                    \\ \\ [MID: ${Math.round(mid*100)}%]            |`,
       ` |           |   ${glyphChar(treble, 0.2)}   ${glyphChar(treble, 0.45)}   |                    \\ \\                        |`,
-      ` |            \\  ${ring(treble)}  /                     \\ \\                       |`,
       ` |             '-----'                                                |`,
-      ` |                                                                    |`,
       ` |                     .--------------------.                         |`,
       ` |                    /     (CENTER GLYPH)   \\                        |`,
       ` |                   |   [BASS: ${Math.round(bass * 100)}%]   ${glyphChar(bass, 0.25)}  ${glyphChar(bass, 0.5)}   |                       |`,
       ` |                    \\                      /                        |`,
       ` |                     '--------------------'                         |`,
-      ` |                               |                                    |`,
-      ` |                       (EXCLAMATION BAR)                            |`,
       ` |                               │ ${glyphChar(bass, 0.4)}                          |`,
       ` |                               ● (DOT)                              |`,
       ` +--------------------------------------------------------------------+`
@@ -420,7 +473,7 @@ class AsciiVisualizer {
   }
 
   /**
-   * Mode 6: Matrix Cyber Rain (Bass-reactive ASCII waterfall)
+   * Mode 6: Matrix Cyber Rain
    */
   renderMatrixRain(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
@@ -428,15 +481,14 @@ class AsciiVisualizer {
     for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
     bass = bass / (6 * 255);
 
-    const height = 11;
-    const width = 48;
-    const matrixChars = '01•·:*+=%@#';
+    const mobile = this.isMobile();
+    const height = mobile ? 8 : 10;
+    const width = mobile ? 32 : 46;
     const lines = [];
 
-    lines.push(` [·] MATRIX CYBER RAIN // BASS ENERGY: ${Math.round(bass * 100)}%`);
+    lines.push(` [·] MATRIX RAIN // BASS: ${Math.round(bass * 100)}%`);
     lines.push(' ┌' + '─'.repeat(width + 2) + '┐');
 
-    // Update rain drops
     if (this.frame % (isPlaying && bass > 0.4 ? 1 : 2) === 0) {
       for (let c = 0; c < width; c++) {
         if (Math.random() < (isPlaying ? 0.3 + bass * 0.4 : 0.1)) {
@@ -464,7 +516,7 @@ class AsciiVisualizer {
     }
 
     lines.push(' └' + '─'.repeat(width + 2) + '┘');
-    lines.push('  NEURAL STREAM // ZERO TELEMETRY // 100% OFFLINE PLAYBACK');
+    lines.push('  NEURAL STREAM // 100% OFFLINE');
     return lines.join('\n');
   }
 }
