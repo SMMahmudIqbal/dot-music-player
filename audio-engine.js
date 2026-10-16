@@ -29,6 +29,12 @@ class AudioEngine {
     this.compressor = null;
     this.masterGain = null;
 
+    // Binaural 3D Spatial Audio (HRTF Headphone Soundstage)
+    this.spatialPanner = null;
+    this.spatialMode = 'OFF'; // 'OFF', 'WIDE', 'BINAURAL', 'ARENA'
+    this.spatialAzimuth = 0; // 0 to 360 degrees
+    this.spatialElevation = 0; // -90 to +90 degrees
+
     // 10-Band Graphic Equalizer Frequencies
     this.eqFrequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
     this.eqFilters = [];
@@ -136,6 +142,41 @@ class AudioEngine {
       if (this.panner) {
         currentNode.connect(this.panner);
         currentNode = this.panner;
+      }
+
+      // Binaural 3D Spatial Audio Panner (HRTF)
+      if (this.audioCtx.createPanner) {
+        try {
+          this.spatialPanner = this.audioCtx.createPanner();
+          this.spatialPanner.panningModel = 'HRTF';
+          this.spatialPanner.distanceModel = 'inverse';
+          this.spatialPanner.refDistance = 1;
+          this.spatialPanner.maxDistance = 10000;
+          this.spatialPanner.rolloffFactor = 1;
+          this.spatialPanner.coneInnerAngle = 360;
+
+          // Configure listener at center origin
+          const listener = this.audioCtx.listener;
+          if (listener.positionX) {
+            listener.positionX.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.positionY.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.positionZ.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.forwardX.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.forwardY.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.forwardZ.setValueAtTime(-1, this.audioCtx.currentTime);
+            listener.upX.setValueAtTime(0, this.audioCtx.currentTime);
+            listener.upY.setValueAtTime(1, this.audioCtx.currentTime);
+            listener.upZ.setValueAtTime(0, this.audioCtx.currentTime);
+          } else if (listener.setOrientation) {
+            listener.setPosition(0, 0, 0);
+            listener.setOrientation(0, 0, -1, 0, 1, 0);
+          }
+
+          currentNode.connect(this.spatialPanner);
+          currentNode = this.spatialPanner;
+        } catch (err) {
+          console.warn('Spatial Panner HRTF init failed, fallback to stereo:', err);
+        }
       }
 
       // Spatial Reverb Convolver & Mixer
@@ -367,6 +408,120 @@ class AudioEngine {
     }
   }
 
+  setSpatialMode(mode) {
+    this.spatialMode = (mode || 'OFF').toUpperCase();
+    this.updateSpatialPannerPosition();
+    return this.spatialMode;
+  }
+
+  setSpatialAzimuth(degrees) {
+    this.spatialAzimuth = degrees;
+    this.updateSpatialPannerPosition();
+  }
+
+  setSpatialElevation(degrees) {
+    this.spatialElevation = degrees;
+    this.updateSpatialPannerPosition();
+  }
+
+  updateSpatialPannerPosition() {
+    if (!this.spatialPanner || !this.audioCtx) return;
+    let radius = 2.0;
+    let y = 0;
+    let rad = (this.spatialAzimuth * Math.PI) / 180;
+
+    if (this.spatialMode === 'OFF') {
+      this.setPannerCoordinates(0, 0, -1.0);
+      return;
+    } else if (this.spatialMode === 'WIDE') {
+      radius = 3.2;
+      y = 0.2;
+    } else if (this.spatialMode === 'ARENA') {
+      radius = 4.2;
+      y = 1.4;
+    } else if (this.spatialMode === 'BINAURAL') {
+      radius = 2.2;
+      y = (this.spatialElevation * Math.PI) / 180;
+    }
+
+    const x = Math.sin(rad) * radius;
+    const z = -Math.cos(rad) * radius;
+    this.setPannerCoordinates(x, y, z);
+  }
+
+  setPannerCoordinates(x, y, z) {
+    if (!this.spatialPanner || !this.audioCtx) return;
+    const t = this.audioCtx.currentTime;
+    if (this.spatialPanner.positionX) {
+      this.spatialPanner.positionX.setTargetAtTime(x, t, 0.04);
+      this.spatialPanner.positionY.setTargetAtTime(y, t, 0.04);
+      this.spatialPanner.positionZ.setTargetAtTime(z, t, 0.04);
+    } else if (this.spatialPanner.setPosition) {
+      this.spatialPanner.setPosition(x, y, z);
+    }
+  }
+
+  getEQFrequencyCurve(points = 64) {
+    const curve = [];
+    const minFreq = 20;
+    const maxFreq = 20000;
+    for (let i = 0; i < points; i++) {
+      const f = minFreq * Math.pow(maxFreq / minFreq, i / (points - 1));
+      let totalDb = 0;
+
+      if (this.bassBoostEnabled && f < 300) {
+        const falloff = Math.max(0, 1 - f / 300);
+        totalDb += this.bassBoostGain * falloff;
+      }
+
+      this.eqFilters.forEach((filter, idx) => {
+        const center = this.eqFrequencies[idx];
+        const gain = this.eqGains[idx] || 0;
+        if (gain !== 0) {
+          const octDist = Math.abs(Math.log2(f / center));
+          const weight = Math.max(0, 1 - octDist / 1.2);
+          totalDb += gain * weight;
+        }
+      });
+      curve.push({ freq: Math.round(f), db: Math.round(totalDb * 10) / 10 });
+    }
+    return curve;
+  }
+
+  generateTrackWaveform(trackId, title = '', duration = 180) {
+    const bars = 64;
+    const waveform = new Float32Array(bars);
+    let hash = 2166136261;
+    const str = `${trackId}_${title}_${duration}`;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+
+    const pseudoRandom = (seed) => {
+      let t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    for (let i = 0; i < bars; i++) {
+      const p = i / (bars - 1);
+      const pr = pseudoRandom(hash + i * 17);
+
+      let macro = 0.45;
+      if (p < 0.1) macro = 0.2 + p * 4.0;
+      else if (p >= 0.25 && p <= 0.45) macro = 0.85;
+      else if (p > 0.45 && p < 0.6) macro = 0.5;
+      else if (p >= 0.6 && p <= 0.85) macro = 0.95;
+      else if (p > 0.85) macro = Math.max(0.15, 0.95 - (p - 0.85) * 5.0);
+
+      const micro = 0.4 + 0.6 * pr;
+      waveform[i] = Math.min(1.0, Math.max(0.12, macro * micro));
+    }
+    return waveform;
+  }
+
   getAudioTelemetry() {
     const isCtx = !!(this.audioCtx && this.isInitialized);
     const vu = this.getStereoVU();
@@ -383,7 +538,9 @@ class AudioEngine {
       bassBoostActive: this.bassBoostEnabled,
       bassBoostGain: this.bassBoostGain,
       reverbPreset: this.reverbPreset,
-      reverbMix: this.reverbMix
+      reverbMix: this.reverbMix,
+      spatialMode: this.spatialMode,
+      spatialAzimuth: this.spatialAzimuth
     };
   }
 

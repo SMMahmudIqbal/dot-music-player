@@ -718,6 +718,181 @@ class AsciiVisualizer {
     lines.push('  PHYSICS KINETICS // 60 FPS');
     return lines.join('\n');
   }
+
+  /**
+   * Generative Dot-Matrix Album Art Synthesizer
+   * Creates a deterministic Nothing OS geometric mandala emblem for tracks without cover art.
+   */
+  static generateDotMatrixCoverArt(title = '', artist = '', size = 320, accentColor = '#d71921') {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    const str = `${title}_${artist}`;
+    let seed = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      seed ^= str.charCodeAt(i);
+      seed = Math.imul(seed, 16777619);
+    }
+    const rnd = (offset = 0) => {
+      let t = (seed + offset + 0x6D2B79F5) | 0;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = '#222222';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(8, 8, size - 16, size - 16);
+
+    const center = size / 2;
+    const rings = 6 + Math.floor(rnd(1) * 4);
+    const symmetry = rnd(2) > 0.5 ? 8 : 12;
+
+    for (let r = 1; r <= rings; r++) {
+      const radius = (r / rings) * (size * 0.38);
+      const dotCount = r * symmetry;
+      const dotSize = 1.2 + (r % 2 === 0 ? 1.4 : 0.8) + (r === rings ? 1.0 : 0);
+      const isAccentRing = (r % 3 === 1);
+
+      for (let d = 0; d < dotCount; d++) {
+        const angle = (d / dotCount) * Math.PI * 2 + (r * 0.15);
+        const bit = ((seed >> (d % 31)) & 1);
+        if (r > 2 && bit === 0 && d % 2 === 1) continue;
+
+        const x = center + Math.cos(angle) * radius;
+        const y = center + Math.sin(angle) * radius;
+
+        ctx.fillStyle = isAccentRing ? accentColor : (d % 4 === 0 ? '#ffffff' : '#555555');
+        ctx.beginPath();
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    ctx.arc(center, center, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(center, center, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#777777';
+    ctx.font = '9px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('NOTHING (R)', 16, 24);
+
+    ctx.textAlign = 'right';
+    const tag = (title.length > 10 ? title.substring(0, 10) : title).toUpperCase();
+    ctx.fillText(tag || 'AUDIO', size - 16, 24);
+
+    ctx.fillStyle = '#999999';
+    ctx.textAlign = 'center';
+    const cleanArt = (artist.length > 20 ? artist.substring(0, 18) + '..' : artist).toUpperCase();
+    ctx.fillText(cleanArt || 'OFFLINE AUDIO', center, size - 20);
+
+    return canvas.toDataURL('image/png');
+  }
+
+  /**
+   * Interactive 64-Bar Dot-Matrix Waveform Seeker
+   */
+  static renderWaveformSeeker(canvas, waveformData, progressPct, accentColor = '#d71921') {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (!waveformData || waveformData.length === 0) return;
+    const count = waveformData.length;
+    const barWidth = Math.max(2, (w / count) - 1.5);
+    const midY = h / 2;
+
+    for (let i = 0; i < count; i++) {
+      const x = i * (w / count);
+      const val = waveformData[i] || 0.1;
+      const barHeight = Math.max(3, val * (h * 0.85));
+      const isPlayed = (i / count) * 100 <= progressPct;
+
+      ctx.fillStyle = isPlayed ? accentColor : '#333333';
+      const y = midY - barHeight / 2;
+      ctx.beginPath();
+      ctx.rect(x, y, barWidth, barHeight);
+      ctx.fill();
+    }
+  }
+
+  /**
+   * Real-Time Parametric EQ Frequency Response Curve
+   */
+  static renderParametricCurve(canvas, audioEngine, accentColor = '#d71921') {
+    if (!canvas || !audioEngine) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const curve = audioEngine.getEQFrequencyCurve ? audioEngine.getEQFrequencyCurve(64) : [];
+    if (curve.length === 0) return;
+
+    const midY = h / 2;
+    const maxDb = 15;
+    const scaleY = (h * 0.42) / maxDb;
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(w, midY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1)) * w;
+      const y = midY - (curve[i].db * scaleY);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, midY);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(215, 25, 33, 0.12)';
+    ctx.fill();
+
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1)) * w;
+      const y = midY - (curve[i].db * scaleY);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    if (audioEngine.eqFilters) {
+      audioEngine.eqFilters.forEach((filter, idx) => {
+        const center = audioEngine.eqFrequencies[idx];
+        const gain = audioEngine.eqGains[idx] || 0;
+        const minLog = Math.log10(20);
+        const maxLog = Math.log10(20000);
+        const x = ((Math.log10(center) - minLog) / (maxLog - minLog)) * w;
+        const y = midY - (gain * scaleY);
+
+        ctx.fillStyle = gain !== 0 ? accentColor : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
 }
 
 if (typeof window !== 'undefined') {

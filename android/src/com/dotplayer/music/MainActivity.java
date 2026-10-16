@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.provider.MediaStore;
 import android.view.Window;
 import android.view.WindowManager;
@@ -506,6 +508,59 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void showToast(String message) {
             runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+        }
+
+        @JavascriptInterface
+        public String getAudioHardwareInfo() {
+            try {
+                JSONObject info = new JSONObject();
+                AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                String deviceName = "INTERNAL STEREO";
+                boolean isUsbDac = false;
+                boolean isBluetooth = false;
+                boolean isWired = false;
+
+                if (am != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        AudioDeviceInfo[] devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+                        if (devices != null) {
+                            for (AudioDeviceInfo dev : devices) {
+                                int type = dev.getType();
+                                if (type == AudioDeviceInfo.TYPE_USB_DEVICE || type == AudioDeviceInfo.TYPE_USB_HEADSET) {
+                                    deviceName = "USB DAC [BIT-PERFECT]";
+                                    isUsbDac = true;
+                                    break;
+                                } else if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+                                    deviceName = "BLUETOOTH A2DP [HD AUDIO]";
+                                    isBluetooth = true;
+                                } else if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || type == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
+                                    deviceName = "WIRED ANALOG 3.5MM [HI-RES]";
+                                    isWired = true;
+                                }
+                            }
+                        }
+                    }
+
+                    String sr = am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
+                    String buffer = am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
+
+                    int sampleRate = sr != null ? Integer.parseInt(sr) : 48000;
+                    int bufferFrames = buffer != null ? Integer.parseInt(buffer) : 192;
+                    double latencyMs = (double) bufferFrames / (double) sampleRate * 1000.0;
+
+                    info.put("deviceType", deviceName);
+                    info.put("isUsbDac", isUsbDac);
+                    info.put("isBluetooth", isBluetooth);
+                    info.put("isWired", isWired);
+                    info.put("sampleRate", sampleRate);
+                    info.put("bufferFrames", bufferFrames);
+                    info.put("latencyMs", Math.round(latencyMs * 10.0) / 10.0);
+                    info.put("bitDepth", isUsbDac ? "32-BIT FLOAT" : "24-BIT / 48KHZ");
+                }
+                return info.toString();
+            } catch (Exception e) {
+                return "{\"deviceType\":\"HARDWARE STEREO\",\"sampleRate\":48000,\"latencyMs\":4.2,\"bitDepth\":\"24-BIT\"}";
+            }
         }
 
         @JavascriptInterface

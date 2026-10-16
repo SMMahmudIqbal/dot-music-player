@@ -1561,6 +1561,116 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ================= Waveform Seeker Canvas ================= */
+.waveform-seek-wrap {
+  width: 100%;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  margin-bottom: 3px;
+  touch-action: none;
+  transition: border-color 0.2s ease;
+}
+
+.waveform-seek-wrap:active {
+  border-color: var(--accent-red);
+}
+
+.waveform-seek-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.waveform-indicator-label {
+  font-family: var(--font-ndot);
+  font-size: 8px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+/* ================= Parametric EQ Curve Canvas ================= */
+.parametric-curve-wrap {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+}
+
+.parametric-eq-canvas {
+  width: 100%;
+  height: 70px;
+  display: block;
+}
+
+/* ================= 3D Spatial Audio (HRTF) ================= */
+.spatial-audio-card {
+  border-color: rgba(215, 25, 33, 0.25);
+}
+
+.spatial-pill {
+  padding: 6px 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-ndot);
+  font-size: 9px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.spatial-pill:active {
+  transform: scale(0.94);
+}
+
+.spatial-pill.active {
+  background: var(--accent-red);
+  color: #ffffff;
+  border-color: var(--accent-red);
+  box-shadow: 0 0 10px var(--accent-red-glow);
+}
+
+/* ================= Kinetic Album Art Gestures ================= */
+.album-art-large {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+}
+
+.album-art-large:active {
+  cursor: grabbing;
+}
+
+.album-art-large.swipe-next {
+  animation: swipeNext 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-art-large.swipe-prev {
+  animation: swipePrev 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes swipeNext {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  45% { transform: translateX(-40px) scale(0.92); opacity: 0.4; }
+  55% { transform: translateX(40px) scale(0.92); opacity: 0.4; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes swipePrev {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  45% { transform: translateX(40px) scale(0.92); opacity: 0.4; }
+  55% { transform: translateX(-40px) scale(0.92); opacity: 0.4; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
 /* Desktop Expand Mode (for tablets & desktop screens > 1024px) */
 @media (min-width: 1024px) {
   .app-viewport {

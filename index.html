@@ -123,11 +123,15 @@
         </div>
       </div>
 
-      <!-- Scrub Bar -->
+      <!-- Scrub Bar with Interactive Dot Waveform -->
       <div class="scrub-container">
+        <div class="waveform-seek-wrap" id="waveform-seek-wrap">
+          <canvas id="waveform-seek-canvas" class="waveform-seek-canvas" width="600" height="34"></canvas>
+        </div>
         <input type="range" class="seek-slider" id="seek-slider" min="0" max="1000" value="0" aria-label="Seek timeline">
         <div class="time-indicators">
           <span id="time-current">00:00</span>
+          <span class="waveform-indicator-label">WAVEFORM SCRUB</span>
           <span id="time-total">00:00</span>
         </div>
       </div>
@@ -262,9 +266,16 @@
         </div>
       </div>
 
-      <!-- 10-Band Sliders -->
+      <!-- 10-Band Sliders with Real-Time Parametric Response Curve -->
       <div class="tuning-card">
-        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">FREQUENCY BANDS (-12dB to +12dB)</div>
+        <div class="parametric-curve-wrap">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 9px; color: var(--text-muted);">PARAMETRIC FREQUENCY RESPONSE (20Hz - 20kHz)</span>
+            <span style="font-family: var(--font-ndot); font-size: 9px; color: var(--accent-red);">REAL-TIME DSP</span>
+          </div>
+          <canvas id="parametric-eq-canvas" class="parametric-eq-canvas" width="600" height="70"></canvas>
+        </div>
+        <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 6px;">FREQUENCY BANDS (-12dB to +12dB)</div>
         <div class="eq-sliders-container">
           <div class="eq-band-col">
             <span class="eq-band-val">0dB</span>
@@ -319,6 +330,28 @@
         </div>
       </div>
 
+      <!-- Binaural 3D Spatial Audio & Headphone HRTF Stage -->
+      <div class="tuning-card spatial-audio-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 600; letter-spacing: 1px;">BINAURAL 3D SPATIAL AUDIO (HRTF)</div>
+            <div style="font-size: 9px; color: var(--text-muted);">HEAD-RELATED IMMERSIVE SOUNDSTAGE</div>
+          </div>
+          <span id="spatial-mode-badge" style="font-family: var(--font-ndot); font-size: 10px; color: var(--accent-red);">OFF</span>
+        </div>
+        <div class="preset-pills-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 8px;">
+          <button class="spatial-pill active" data-spatial="OFF">BYPASS</button>
+          <button class="spatial-pill" data-spatial="WIDE">WIDE 180°</button>
+          <button class="spatial-pill" data-spatial="BINAURAL">360° ORBIT</button>
+          <button class="spatial-pill" data-spatial="ARENA">ARENA 3D</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 10px; color: var(--text-muted);">AZIMUTH</span>
+          <input type="range" class="vol-slider" id="spatial-azimuth-slider" min="0" max="360" value="0" aria-label="Spatial Azimuth" style="flex: 1;">
+          <span id="spatial-azimuth-val" style="font-family: var(--font-ndot); font-size: 11px; min-width: 38px; text-align: right; color: var(--text-primary);">0°</span>
+        </div>
+      </div>
+
       <!-- Stereo Sound Stage / Panner -->
       <div class="tuning-card">
         <div style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">STEREO PANORAMA</div>
@@ -345,28 +378,32 @@
         </div>
       </div>
 
-      <!-- Hi-Res Audio Stream Inspector & Telemetry -->
+      <!-- Hi-Res Audio Stream Inspector & Hardware Telemetry -->
       <div class="tuning-card telemetry-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <span style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">HI-RES STREAM INSPECTOR</span>
+          <span style="font-size: 10px; color: var(--text-secondary); letter-spacing: 1px;">HARDWARE & STREAM INSPECTOR</span>
           <span class="telemetry-live-badge" style="font-family: var(--font-ndot); font-size: 9px; color: var(--accent-red);">[·] LIVE</span>
         </div>
         <div class="telemetry-grid">
+          <div class="telemetry-item" style="grid-column: span 2;">
+            <span class="telemetry-lbl">HARDWARE AUDIO OUTPUT</span>
+            <span class="telemetry-val" id="telem-hw-device" style="color: var(--accent-red);">INTERNAL STEREO</span>
+          </div>
           <div class="telemetry-item">
             <span class="telemetry-lbl">SAMPLE RATE</span>
             <span class="telemetry-val" id="telem-sample-rate">48,000 HZ</span>
           </div>
           <div class="telemetry-item">
-            <span class="telemetry-lbl">CHANNELS</span>
-            <span class="telemetry-val" id="telem-channels">2 (STEREO)</span>
+            <span class="telemetry-lbl">BIT DEPTH</span>
+            <span class="telemetry-val" id="telem-bit-depth">32-BIT FLOAT</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-lbl">DSP LATENCY</span>
+            <span class="telemetry-val" id="telem-latency">4.2 MS</span>
           </div>
           <div class="telemetry-item">
             <span class="telemetry-lbl">ENGINE STATE</span>
             <span class="telemetry-val" id="telem-state">STANDBY</span>
-          </div>
-          <div class="telemetry-item">
-            <span class="telemetry-lbl">OUTPUT BUFFER</span>
-            <span class="telemetry-val" id="telem-buffer">HARDWARE DMA</span>
           </div>
         </div>
         <!-- Dual Channel Peak Meter Bars -->

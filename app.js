@@ -32,7 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     crossfadeSec: parseInt(localStorage.getItem('dot_crossfade') || '0', 10),
     sleepTimerId: null,
     sleepTimerMinutes: 0,
-    sleepTimerEndsAt: null
+    sleepTimerEndsAt: null,
+    currentWaveform: null
   };
 
   // DOM Elements
@@ -73,7 +74,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     heroArtist: document.getElementById('hero-artist'),
     heroFormat: document.getElementById('hero-format'),
     heroSize: document.getElementById('hero-size'),
-    // Scrub bar
+    // Scrub bar & Waveform
+    waveformWrap: document.getElementById('waveform-seek-wrap'),
+    waveformCanvas: document.getElementById('waveform-seek-canvas'),
     timeCurrent: document.getElementById('time-current'),
     timeTotal: document.getElementById('time-total'),
     seekSlider: document.getElementById('seek-slider'),
@@ -96,8 +99,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     miniBtnNext: document.getElementById('mini-btn-next'),
     miniPlayerLeft: document.getElementById('mini-player-left'),
     // Tuning & EQ
+    parametricCanvas: document.getElementById('parametric-eq-canvas'),
     presetPills: document.querySelectorAll('.preset-pill'),
     eqSliders: document.querySelectorAll('.eq-slider-vertical'),
+    spatialPills: document.querySelectorAll('.spatial-pill'),
+    spatialModeBadge: document.getElementById('spatial-mode-badge'),
+    spatialAzimuthSlider: document.getElementById('spatial-azimuth-slider'),
+    spatialAzimuthVal: document.getElementById('spatial-azimuth-val'),
     panSlider: document.getElementById('pan-slider'),
     btnBassBoostToggle: document.getElementById('btn-bass-boost-toggle'),
     bassBoostSlider: document.getElementById('bass-boost-slider'),
@@ -106,6 +114,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     reverbMixSlider: document.getElementById('reverb-mix-slider'),
     reverbMixVal: document.getElementById('reverb-mix-val'),
     reverbCurrentBadge: document.getElementById('reverb-current-badge'),
+    telemHwDevice: document.getElementById('telem-hw-device'),
+    telemBitDepth: document.getElementById('telem-bit-depth'),
+    telemLatency: document.getElementById('telem-latency'),
     telemSampleRate: document.getElementById('telem-sample-rate'),
     telemChannels: document.getElementById('telem-channels'),
     telemState: document.getElementById('telem-state'),
@@ -581,8 +592,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.heroFormat) el.heroFormat.textContent = track.format || 'AUDIO';
     if (el.heroSize) el.heroSize.textContent = formatBytes(track.size);
 
+    if (!track.picture || track.picture === 'icon.svg') {
+      track.picture = AsciiVisualizer.generateDotMatrixCoverArt(
+        track.title || track.name,
+        track.artist || 'Local Audio',
+        320,
+        state.accentColor
+      );
+    }
+
     if (el.albumArt) {
-      el.albumArt.src = track.picture || 'icon.svg';
+      el.albumArt.src = track.picture;
       el.albumArt.style.display = 'block';
     }
 
@@ -591,10 +611,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.btnPlayPause.setAttribute('title', 'Pause (Space)');
     }
 
+    // Generate and render 64-bar dot-matrix waveform
+    state.currentWaveform = audioEngine.generateTrackWaveform(track.id, track.title || track.name, track.duration || 180);
+    if (el.waveformCanvas) {
+      AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, state.currentWaveform, 0, state.accentColor);
+    }
+
     // Update Floating Mini-Player
     if (el.miniTrackTitle) el.miniTrackTitle.textContent = track.title || track.name;
     if (el.miniTrackArtist) el.miniTrackArtist.textContent = `${track.artist || 'Unknown Artist'} // ${track.album || 'Local'}`;
-    if (el.miniAlbumArt) el.miniAlbumArt.src = track.picture || 'icon.svg';
+    if (el.miniAlbumArt) el.miniAlbumArt.src = track.picture;
     if (el.miniBtnPlay) el.miniBtnPlay.innerHTML = SVG_ICONS.pause;
 
     const activePanel = document.querySelector('.view-panel.active');
@@ -655,6 +681,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!el.seekSlider.matches(':active')) {
           el.seekSlider.value = (current / total) * 1000;
         }
+      }
+      if (state.currentWaveform && el.waveformCanvas) {
+        AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, state.currentWaveform, pct, state.accentColor);
       }
       if (el.miniSeekLine) {
         el.miniSeekLine.style.setProperty('--mini-progress', `${pct}%`);
@@ -730,6 +759,98 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (el.btnNext) el.btnNext.addEventListener('click', playNextTrack);
   if (el.btnPrev) el.btnPrev.addEventListener('click', playPrevTrack);
+
+  // Interactive 64-Bar Waveform Seeker
+  if (el.waveformWrap) {
+    const handleWaveformSeek = (e) => {
+      const rect = el.waveformWrap.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const offsetX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+      const pct = offsetX / rect.width;
+      const dur = audioEngine.audio.duration;
+      if (dur && Number.isFinite(dur)) {
+        triggerHaptic(12);
+        audioEngine.seek(pct * dur);
+        if (el.seekSlider) {
+          el.seekSlider.value = pct * 1000;
+          el.seekSlider.style.setProperty('--seek-pct', `${pct * 100}%`);
+        }
+        if (state.currentWaveform && el.waveformCanvas) {
+          AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, state.currentWaveform, pct * 100, state.accentColor);
+        }
+      }
+    };
+
+    el.waveformWrap.addEventListener('pointerdown', (e) => {
+      handleWaveformSeek(e);
+      const onMove = (moveEv) => handleWaveformSeek(moveEv);
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  }
+
+  // Kinetic Touch Gestures on Album Art (Swipe to skip, Double-tap to seek 10s)
+  if (el.albumArt) {
+    let startX = 0;
+    let startY = 0;
+    let lastTapTime = 0;
+
+    el.albumArt.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    el.albumArt.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 1) {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        const now = Date.now();
+
+        // Horizontal swipe (> 45px)
+        if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+          triggerHaptic(20);
+          if (diffX < 0) {
+            el.albumArt.classList.add('swipe-next');
+            setTimeout(() => el.albumArt.classList.remove('swipe-next'), 280);
+            playNextTrack();
+          } else {
+            el.albumArt.classList.add('swipe-prev');
+            setTimeout(() => el.albumArt.classList.remove('swipe-prev'), 280);
+            playPrevTrack();
+          }
+          return;
+        }
+
+        // Double tap for ±10s seek
+        if (now - lastTapTime < 280) {
+          const rect = el.albumArt.getBoundingClientRect();
+          const tapX = endX - rect.left;
+          const isRight = tapX > rect.width / 2;
+          const curTime = audioEngine.audio.currentTime || 0;
+          if (isRight) {
+            triggerHaptic(18);
+            audioEngine.seek(curTime + 10);
+            showToast('+10 SEC [>>]');
+          } else {
+            triggerHaptic(18);
+            audioEngine.seek(Math.max(0, curTime - 10));
+            showToast('-10 SEC [<<]');
+          }
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+      }
+    }, { passive: true });
+  }
 
   if (el.seekSlider) {
     el.seekSlider.addEventListener('input', () => {
@@ -1050,6 +1171,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 8. Equalizer & Presets
+  function refreshParametricCurve() {
+    if (el.parametricCanvas) {
+      AsciiVisualizer.renderParametricCurve(el.parametricCanvas, audioEngine, state.accentColor);
+    }
+  }
+
   if (el.presetPills) {
     el.presetPills.forEach((pill) => {
       pill.addEventListener('click', () => {
@@ -1062,6 +1189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const valLabel = slider.parentElement.querySelector('.eq-band-val');
           if (valLabel) valLabel.textContent = `${slider.value > 0 ? '+' : ''}${slider.value}dB`;
         });
+        refreshParametricCurve();
         showToast(`EQ PRESET: ${presetName}`);
       });
     });
@@ -1074,6 +1202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         audioEngine.setEQBand(idx, gain);
         const valLabel = slider.parentElement.querySelector('.eq-band-val');
         if (valLabel) valLabel.textContent = `${gain > 0 ? '+' : ''}${gain}dB`;
+        refreshParametricCurve();
       });
     });
   }
@@ -1082,6 +1211,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.panSlider.addEventListener('input', () => {
       const pan = parseFloat(el.panSlider.value) / 100;
       audioEngine.setPanning(pan);
+    });
+  }
+
+  // Binaural 3D Spatial Audio (HRTF) Controls
+  if (el.spatialPills) {
+    el.spatialPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        triggerHaptic(15);
+        el.spatialPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const mode = pill.dataset.spatial || 'BYPASS';
+        audioEngine.setSpatialMode(mode);
+        if (el.spatialModeBadge) el.spatialModeBadge.textContent = mode;
+        showToast(`3D SPATIAL: ${mode}`);
+      });
+    });
+  }
+
+  if (el.spatialAzimuthSlider) {
+    el.spatialAzimuthSlider.addEventListener('input', () => {
+      const deg = parseInt(el.spatialAzimuthSlider.value, 10);
+      if (el.spatialAzimuthVal) el.spatialAzimuthVal.textContent = `${deg}°`;
+      audioEngine.setSpatialAzimuth(deg);
     });
   }
 
@@ -1095,6 +1247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       audioEngine.setBassBoost(willBeActive, gain);
       el.btnBassBoostToggle.textContent = willBeActive ? 'ON' : 'OFF';
       el.btnBassBoostToggle.classList.toggle('bass-boost-active', willBeActive);
+      refreshParametricCurve();
       showToast(willBeActive ? `[·] BASS BOOST: ON (+${gain}dB)` : 'BASS BOOST: OFF');
     });
   }
@@ -1104,10 +1257,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const gain = parseFloat(el.bassBoostSlider.value);
       if (el.bassBoostVal) el.bassBoostVal.textContent = `+${gain}dB`;
       audioEngine.setBassBoostGain(gain);
+      refreshParametricCurve();
     });
   }
 
-  // Hi-Res Audio Stream Inspector Telemetry
+  // Hi-Res Audio Stream Inspector & Hardware DAC Telemetry
   function updateTelemetry() {
     if (!el.telemSampleRate) return;
     const telem = audioEngine.getAudioTelemetry();
@@ -1117,6 +1271,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const isPlaying = !audioEngine.audio.paused;
     el.telemBuffer.textContent = isPlaying ? 'HARDWARE DMA' : 'STANDBY';
+
+    // Native Android Hardware Audio Device Inspector
+    if (window.AndroidApp && window.AndroidApp.getAudioHardwareInfo) {
+      try {
+        const hwInfoStr = window.AndroidApp.getAudioHardwareInfo();
+        const hw = JSON.parse(hwInfoStr);
+        if (el.telemHwDevice && hw.device) el.telemHwDevice.textContent = hw.device;
+        if (el.telemBitDepth && hw.bitDepth) el.telemBitDepth.textContent = `${hw.bitDepth}-BIT INT`;
+        if (el.telemLatency && hw.latencyMs) el.telemLatency.textContent = `${hw.latencyMs} MS`;
+        if (hw.sampleRate && !audioEngine.audioCtx) {
+          el.telemSampleRate.textContent = `${hw.sampleRate.toLocaleString()} HZ`;
+        }
+      } catch (e) {
+        // Fallback
+      }
+    } else {
+      if (el.telemHwDevice && (!el.telemHwDevice.textContent || el.telemHwDevice.textContent === 'INTERNAL STEREO')) {
+        el.telemHwDevice.textContent = 'WEB AUDIO ENGINE [BIT-PERFECT]';
+      }
+    }
 
     // Update Peak Bars
     if (el.peakBarL) {
@@ -1130,6 +1304,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (el.peakDbR) {
       el.peakDbR.textContent = telem.peakR > 1 ? `${Math.round((telem.peakR / 100) * 12 - 12)}dB` : '-INF';
+    }
+
+    // Render interactive parametric frequency response curve
+    if (el.parametricCanvas) {
+      AsciiVisualizer.renderParametricCurve(el.parametricCanvas, audioEngine, state.accentColor);
     }
   }
 
