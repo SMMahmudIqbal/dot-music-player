@@ -62,11 +62,53 @@ class ID3Parser {
           meta.title = parts.slice(1).join(' - ').trim();
         }
       }
+
+      // Determine duration via HTML5 Audio element metadata
+      if ((!meta.duration || meta.duration === 0) && typeof window !== 'undefined' && typeof document !== 'undefined') {
+        meta.duration = await this.getAudioDuration(file);
+      }
     } catch (err) {
       console.warn('ID3 parse fallback used for:', file.name, err);
     }
 
     return meta;
+  }
+
+  static async getAudioDuration(file) {
+    return new Promise((resolve) => {
+      try {
+        const audio = document.createElement('audio');
+        audio.preload = 'metadata';
+        const url = URL.createObjectURL(file);
+        audio.src = url;
+        let resolved = false;
+
+        const cleanup = () => {
+          if (!resolved) {
+            resolved = true;
+            URL.revokeObjectURL(url);
+          }
+        };
+
+        audio.onloadedmetadata = () => {
+          const dur = audio.duration;
+          cleanup();
+          resolve(Number.isFinite(dur) ? dur : 0);
+        };
+
+        audio.onerror = () => {
+          cleanup();
+          resolve(0);
+        };
+
+        setTimeout(() => {
+          cleanup();
+          resolve(0);
+        }, 1500);
+      } catch (e) {
+        resolve(0);
+      }
+    });
   }
 
   static cleanFileName(filename) {

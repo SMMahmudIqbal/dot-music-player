@@ -164,15 +164,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       try { tracks = JSON.parse(tracks); } catch (e) { tracks = []; }
     }
     if (Array.isArray(tracks)) {
-      logScanConsole(`Discovered ${tracks.length} audio tracks from Android MediaStore.`);
-      if (tracks.length > 0) {
+      const isSong = window.isMusicTrack || (t => true);
+      const songTracks = tracks.filter(t => isSong(t));
+      const filteredCount = tracks.length - songTracks.length;
+
+      logScanConsole(`Discovered ${tracks.length} device audio files.`);
+      if (filteredCount > 0) {
+        logScanConsole(`Filtered out ${filteredCount} non-music / short audio / call recording files.`);
+      }
+
+      if (songTracks.length > 0) {
         if (el.scanProgressFill) el.scanProgressFill.style.width = '100%';
-        if (el.scanProgressText) el.scanProgressText.textContent = `INDEXED ${tracks.length} SONGS`;
-        await storage.saveAllTracks(tracks);
+        if (el.scanProgressText) el.scanProgressText.textContent = `INDEXED ${songTracks.length} SONGS (>=1.5M)`;
+        logScanConsole(`Saving ${songTracks.length} genuine music songs to offline library...`);
+        await storage.saveAllTracks(songTracks);
         await reloadLibrary();
-        showToast(`AUTOSCAN: ${tracks.length} SONGS LOADED`);
+        showToast(`AUTOSCAN: ${songTracks.length} SONGS LOADED`);
       } else {
-        if (el.scanProgressText) el.scanProgressText.textContent = 'NO AUDIO FILES DETECTED';
+        if (el.scanProgressText) el.scanProgressText.textContent = 'NO SONGS (>=1.5M) DETECTED';
         showToast('AUTOSCAN: NO SONGS FOUND ON DEVICE');
       }
       setTimeout(closeScanModal, 1000);
@@ -233,9 +242,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${(bytes / 1024).toFixed(0)} KB`;
   }
 
-  // 2. Load Tracks from IndexedDB
+  // 2. Load Tracks from IndexedDB and Sanitize Library
   async function reloadLibrary() {
-    const tracks = await storage.getAllTracks();
+    let tracks = await storage.getAllTracks();
+    const isSong = window.isMusicTrack || (t => true);
+    const validSongs = [];
+    const invalidIds = [];
+
+    tracks.forEach((t) => {
+      if (isSong(t)) {
+        validSongs.push(t);
+      } else {
+        invalidIds.push(t.id);
+      }
+    });
+
+    if (invalidIds.length > 0) {
+      for (const id of invalidIds) {
+        await storage.deleteTrack(id);
+      }
+      console.log(`[Auto-Sanitizer] Cleaned ${invalidIds.length} non-music / short audio tracks from offline storage.`);
+      tracks = validSongs;
+    }
+
     state.library = tracks;
     updateTrackCountBadge();
     renderTrackList();
@@ -830,7 +859,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.scanModal.classList.add('active');
       el.scanProgressFill.style.width = '0%';
       el.scanProgressText.textContent = 'READY TO SCAN';
-      el.scanConsole.textContent = 'Initializing AutoScan Engine...\n';
+      el.scanConsole.textContent = 'Initializing AutoScan Engine...\n[·] Music Filter: Songs only (>= 1.5 mins)\n[·] Call recordings & voice memos excluded\n';
     }
   }
 
@@ -852,12 +881,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.AndroidApp && window.AndroidApp.isAndroidApp()) {
       if (el.scanProgressText) el.scanProgressText.textContent = 'SCANNING DEVICE STORAGE...';
       logScanConsole('Connecting to Native Android MediaStore...');
-      logScanConsole('Scanning Internal Storage & SD Cards for songs...');
+      logScanConsole('Applying Song Filter: >= 1.5 mins, call recordings excluded...');
       window.AndroidApp.scanDeviceAudio();
       return;
     }
 
-    logScanConsole('Requesting device directory access...');
+    logScanConsole('Requesting device directory access (Music folders)...');
 
     try {
       const tracks = await scanner.scanDirectoryPicker((prog) => {

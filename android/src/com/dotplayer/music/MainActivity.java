@@ -252,6 +252,121 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    /**
+     * Music Audio Filter:
+     * - Minimum duration >= 90 seconds (1.5 minutes = 90,000 milliseconds).
+     * - Strictly excludes call recordings, phone recordings, and call recorder apps.
+     * - Strictly excludes voice notes, WhatsApp/Telegram audio, and voice memos.
+     * - Strictly excludes system sounds, ringtones, notifications, and alarms.
+     */
+    public static boolean isMusicTrack(String title, String artist, String album, String filePath, long durationMs) {
+        // 1. Strict 1.5-minute threshold (90,000 ms)
+        if (durationMs < 90000) {
+            return false;
+        }
+
+        String path = (filePath != null ? filePath : "").replace('\\', '/').toLowerCase(java.util.Locale.ROOT);
+        String t = (title != null ? title : "").toLowerCase(java.util.Locale.ROOT);
+        String a = (artist != null ? artist : "").toLowerCase(java.util.Locale.ROOT);
+        String al = (album != null ? album : "").toLowerCase(java.util.Locale.ROOT);
+
+        // 2. Reject call recording directories & app folders
+        if (path.contains("/call recordings/") || 
+            path.contains("/call_recordings/") || 
+            path.contains("/callrecordings/") || 
+            path.contains("/phone recordings/") || 
+            path.contains("/phone_recordings/") || 
+            path.contains("/cubeacr/") || 
+            path.contains("/cube_acr/") || 
+            path.contains("/truecaller/") || 
+            path.contains("/autocallrecord/") || 
+            path.contains("/auto_call_record/") || 
+            path.contains("/callrecorder/") || 
+            path.contains("/call_recorder/") || 
+            path.contains("/callx/") || 
+            path.contains("/sound_recorder/call_rec/") || 
+            path.contains("/sound recorder/call_rec/") || 
+            path.contains("/recordings/call/") || 
+            path.contains("/voice memos/") || 
+            path.contains("/voicerecorder/") || 
+            path.contains("/voice_recorder/") || 
+            path.contains("/voice recorder/") || 
+            path.contains("/soundrecorder/") || 
+            path.contains("/sound_recorder/") || 
+            path.contains("/sound recorder/")) {
+            return false;
+        }
+
+        // 3. Reject call recording filename signatures
+        String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+        if (filename.startsWith("call_") || 
+            filename.startsWith("call-") || 
+            filename.startsWith("call@") || 
+            filename.startsWith("call ") || 
+            filename.startsWith("rec_call") || 
+            filename.startsWith("callrec") || 
+            filename.startsWith("call_rec") || 
+            filename.startsWith("incoming_") || 
+            filename.startsWith("outgoing_") || 
+            filename.startsWith("voice_") || 
+            filename.startsWith("voicenote_") || 
+            filename.startsWith("voice-") || 
+            filename.startsWith("audiorecord_") || 
+            filename.startsWith("aud-") || 
+            filename.startsWith("ptt-") || 
+            filename.startsWith("rec202") || 
+            filename.startsWith("rec_202")) {
+            return false;
+        }
+
+        // 4. Reject messaging voice notes & non-music audio directories
+        if (path.contains("/whatsapp/media/") || 
+            path.contains("/whatsapp audio/") || 
+            path.contains("/whatsapp voice notes/") || 
+            path.contains("/telegram/telegram audio/") || 
+            path.contains("/com.whatsapp/") || 
+            path.contains("/org.telegram/") || 
+            path.contains("/com.facebook.orca/") || 
+            path.contains("/ringtones/") || 
+            path.contains("/notifications/") || 
+            path.contains("/alarms/") || 
+            path.contains("/ui/") || 
+            path.contains("/system/media/") || 
+            path.contains("/audiobooks/") || 
+            path.contains("/podcasts/")) {
+            return false;
+        }
+
+        // 5. Inspect Title & Metadata
+        if (t.startsWith("call@") || 
+            t.startsWith("call_") || 
+            t.startsWith("call-") || 
+            t.startsWith("call recording") || 
+            t.startsWith("phone call") || 
+            t.startsWith("incoming call") || 
+            t.startsWith("outgoing call") || 
+            t.startsWith("voice note") || 
+            t.startsWith("voice memo") || 
+            t.startsWith("rec_") || 
+            t.startsWith("rec202") || 
+            t.startsWith("record_") || 
+            t.matches("^call\\s+(\\+?[0-9]{6,}|with|from|to).*")) {
+            return false;
+        }
+
+        if (a.equals("call recorder") || 
+            a.equals("sound recorder") || 
+            a.equals("voice recorder") || 
+            al.contains("call recording") || 
+            al.contains("call recordings") || 
+            al.contains("voice memos") || 
+            al.contains("sound recorder")) {
+            return false;
+        }
+
+        return true;
+    }
+
     private String queryMediaStoreAudio() {
         JSONArray trackArray = new JSONArray();
         Uri audioUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
@@ -265,11 +380,17 @@ public class MainActivity extends Activity {
             MediaStore.Audio.Media.SIZE,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DATA
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.IS_RINGTONE,
+            MediaStore.Audio.Media.IS_NOTIFICATION,
+            MediaStore.Audio.Media.IS_ALARM
         };
 
-        // Filter out short notification sounds (< 5s)
-        String selection = MediaStore.Audio.Media.DURATION + " >= 5000";
+        // Strict 1.5-minute duration threshold (90,000 ms) and exclude ringtones/notifications/alarms
+        String selection = MediaStore.Audio.Media.DURATION + " >= 90000"
+            + " AND (" + MediaStore.Audio.Media.IS_RINGTONE + " = 0)"
+            + " AND (" + MediaStore.Audio.Media.IS_NOTIFICATION + " = 0)"
+            + " AND (" + MediaStore.Audio.Media.IS_ALARM + " = 0)";
         String sortOrder = MediaStore.Audio.Media.TITLE + " COLLATE NOCASE ASC";
 
         Cursor cursor = null;
@@ -308,6 +429,12 @@ public class MainActivity extends Activity {
 
                     if (artist == null || artist.equals("<unknown>")) artist = "Unknown Artist";
                     if (album == null || album.equals("<unknown>")) album = "Local Audio";
+
+                    // Apply strict music song filter (>= 1.5 mins, no call recordings, no voice notes)
+                    if (!isMusicTrack(title, artist, album, filePath, durationMs)) {
+                        cursor.moveToNext();
+                        continue;
+                    }
 
                     String format = "MP3";
                     if (mime != null) {

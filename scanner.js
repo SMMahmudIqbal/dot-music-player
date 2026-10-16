@@ -263,7 +263,12 @@ class AutoScanner {
           }
         } else if (entry.kind === 'directory') {
           const lowerName = entry.name.toLowerCase();
-          if (!['node_modules', '.git', '$recycle.bin', 'system volume information', 'windows', 'appdata'].includes(lowerName)) {
+          const skipDirs = [
+            'node_modules', '.git', '$recycle.bin', 'system volume information', 'windows', 'appdata',
+            'call recordings', 'callrecordings', 'call recorder', 'recordings', 'sound recorder', 'voice recorder',
+            'voice memos', 'voice notes', 'whatsapp', 'telegram', 'ringtones', 'notifications', 'alarms', 'podcasts', 'audiobooks'
+          ];
+          if (!skipDirs.some(d => lowerName === d || lowerName.includes(d))) {
             await walkDirectory(entry, `${path}/${entry.name}`);
           }
         }
@@ -393,7 +398,10 @@ class AutoScanner {
         file: file
       };
 
-      tracks.push(track);
+      // Strict Song Filter: >= 90s (1.5 mins), exclude call recordings, voice notes, and non-music
+      if (AutoScanner.isMusicTrack(track)) {
+        tracks.push(track);
+      }
 
       // Yield event loop every 15 items for non-blocking UI
       if (i % 15 === 0) {
@@ -406,7 +414,8 @@ class AutoScanner {
           total,
           current: i + 1,
           percent: Math.round(((i + 1) / total) * 100),
-          currentTrack: track
+          currentTrack: track,
+          acceptedCount: tracks.length
         });
       }
     }
@@ -416,6 +425,97 @@ class AutoScanner {
     return tracks;
   }
 
+  /**
+   * Universal Song Filter:
+   * - Strictly requires duration >= 90s (1.5 minutes).
+   * - Excludes call recordings, phone recorder apps, voice notes, WhatsApp/Telegram audio, ringtones, alarms.
+   */
+  static isMusicTrack(track) {
+    if (!track) return false;
+
+    // 1. Strict 1.5-minute duration threshold (90 seconds)
+    const dur = parseFloat(track.duration || 0);
+    if (dur > 0 && dur < 90) {
+      return false;
+    }
+
+    const path = (track.path || track.filePath || track.name || '').replace(/\\/g, '/').toLowerCase();
+    const folder = (track.folder || '').toLowerCase();
+    const title = (track.title || track.name || '').toLowerCase();
+    const artist = (track.artist || '').toLowerCase();
+    const album = (track.album || '').toLowerCase();
+
+    // 2. Reject call recording directories & app folders
+    const callFolders = [
+      '/call recordings/', '/call_recordings/', '/callrecordings/',
+      '/phone recordings/', '/phone_recordings/', '/cubeacr/', '/cube_acr/',
+      '/truecaller/', '/autocallrecord/', '/auto_call_record/',
+      '/callrecorder/', '/call_recorder/', '/callx/',
+      '/sound_recorder/call_rec/', '/sound recorder/call_rec/',
+      '/recordings/call/', '/voice memos/', '/voicerecorder/',
+      '/voice_recorder/', '/voice recorder/', '/soundrecorder/',
+      '/sound_recorder/', '/sound recorder/'
+    ];
+    if (callFolders.some(f => path.includes(f) || folder.includes(f.replace(/\//g, '')))) {
+      return false;
+    }
+
+    // 3. Reject call recording filename signatures
+    const filename = path.includes('/') ? path.split('/').pop() : path;
+    const callFilePrefixes = [
+      'call_', 'call-', 'call@', 'call ', 'rec_call', 'callrec',
+      'call_rec', 'incoming_', 'outgoing_', 'voice_', 'voicenote_',
+      'voice-', 'audiorecord_', 'aud-', 'ptt-', 'rec202', 'rec_202'
+    ];
+    if (callFilePrefixes.some(p => filename.startsWith(p))) {
+      return false;
+    }
+
+    // 4. Reject messaging & system audio folders
+    const nonMusicPaths = [
+      '/whatsapp/media/', '/whatsapp audio/', '/whatsapp voice notes/',
+      '/telegram/telegram audio/', '/com.whatsapp/', '/org.telegram/',
+      '/com.facebook.orca/', '/ringtones/', '/notifications/',
+      '/alarms/', '/ui/', '/system/media/', '/audiobooks/', '/podcasts/'
+    ];
+    if (nonMusicPaths.some(p => path.includes(p) || folder.includes(p.replace(/\//g, '')))) {
+      return false;
+    }
+
+    // 5. Inspect Title & Metadata
+    if (
+      title.startsWith('call@') ||
+      title.startsWith('call_') ||
+      title.startsWith('call-') ||
+      title.startsWith('call recording') ||
+      title.startsWith('phone call') ||
+      title.startsWith('incoming call') ||
+      title.startsWith('outgoing call') ||
+      title.startsWith('voice note') ||
+      title.startsWith('voice memo') ||
+      title.startsWith('rec_') ||
+      title.startsWith('rec202') ||
+      title.startsWith('record_') ||
+      /^call\s+(\+?[0-9]{6,}|with|from|to)\b/i.test(title)
+    ) {
+      return false;
+    }
+
+    if (
+      artist === 'call recorder' ||
+      artist === 'sound recorder' ||
+      artist === 'voice recorder' ||
+      album.includes('call recording') ||
+      album.includes('call recordings') ||
+      album.includes('voice memos') ||
+      album.includes('sound recorder')
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
   cancel() {
     this.cancelRequested = true;
     this.isScanning = false;
@@ -423,6 +523,7 @@ class AutoScanner {
 }
 
 if (typeof window !== 'undefined') {
+  window.isMusicTrack = AutoScanner.isMusicTrack;
   window.StorageManager = StorageManager;
   window.AutoScanner = AutoScanner;
 }
