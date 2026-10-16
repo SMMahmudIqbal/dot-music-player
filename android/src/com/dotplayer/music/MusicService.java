@@ -8,8 +8,12 @@ import android.app.Service;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.MediaMetadataRetriever;
 import android.media.session.MediaSession;
@@ -27,6 +31,7 @@ import java.io.InputStream;
 /**
  * Background Music Playback Foreground Service & Android SystemUI Media Control
  * Renders rich Notification & Lockscreen Media Card with live seek scrubber and album artwork.
+ * Handles Audio Focus and CPU WakeLocks for 100% stable background playback.
  * Author: Developed by S. M. Mahmud Iqbal
  */
 public class MusicService extends Service {
@@ -52,6 +57,10 @@ public class MusicService extends Service {
     private PowerManager.WakeLock mWakeLock;
     private MediaSession mMediaSession;
     private NotificationManager mNotificationManager;
+    private AudioManager mAudioManager;
+    private AudioFocusRequest mFocusRequest;
+    private boolean mHasAudioFocus = false;
+    private boolean mResumeOnFocusGain = false;
 
     private String mCurrentTitle = "Dot Music Player";
     private String mCurrentArtist = "Offline Audio";
@@ -68,6 +77,7 @@ public class MusicService extends Service {
     public void onCreate() {
         super.onCreate();
         mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
         // Acquire partial WakeLock to keep CPU alive during background playback
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -90,6 +100,7 @@ public class MusicService extends Service {
             channel.setDescription("Background audio playback controls and notification");
             channel.setShowBadge(false);
             channel.setSound(null, null);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             if (mNotificationManager != null) {
                 mNotificationManager.createNotificationChannel(channel);
             }
@@ -98,6 +109,10 @@ public class MusicService extends Service {
 
     private void initMediaSession() {
         mMediaSession = new MediaSession(this, "DotMusicSession");
+        mMediaSession.setFlags(
+            MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
+            MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS
+        );
         mMediaSession.setCallback(new MediaSession.Callback() {
             @Override
             public void onPlay() {
@@ -128,11 +143,81 @@ public class MusicService extends Service {
 
             @Override
             public void onStop() {
+                MainActivity.triggerStop();
+                abandonAudioFocus();
+                releaseWakeLock();
+                stopForeground(true);
                 stopSelf();
             }
         });
         mMediaSession.setActive(true);
     }
+
+    private void requestAudioFocus() {
+        if (mHasAudioFocus || mAudioManager == null) return;
+        try {
+            int result;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (mFocusRequest == null) {
+                    AudioAttributes attrs = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+                    mFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(attrs)
+                        .setAcceptsDelayedFocusGain(true)
+                        .setOnAudioFocusChangeListener(mFocusChangeListener)
+                        .build();
+                }
+                result = mAudioManager.requestAudioFocus(mFocusRequest);
+            } else {
+                result = mAudioManager.requestAudioFocus(
+                    mFocusChangeListener,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+                );
+            }
+            mHasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        } catch (Exception ignored) {}
+    }
+
+    private void abandonAudioFocus() {
+        if (!mHasAudioFocus || mAudioManager == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && mFocusRequest != null) {
+                mAudioManager.abandonAudioFocusRequest(mFocusRequest);
+            } else {
+                mAudioManager.abandonAudioFocus(mFocusChangeListener);
+            }
+            mHasAudioFocus = false;
+            mResumeOnFocusGain = false;
+        } catch (Exception ignored) {}
+    }
+
+    private final AudioManager.OnAudioFocusChangeListener mFocusChangeListener = focusChange -> {
+        switch (focusChange) {
+            case AudioManager.AUDIOFOCUS_LOSS:
+                mHasAudioFocus = false;
+                mResumeOnFocusGain = false;
+                MainActivity.triggerStop();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                mHasAudioFocus = false;
+                mResumeOnFocusGain = mIsPlaying;
+                MainActivity.triggerPlayPause();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // Can keep playing or duck
+                break;
+            case AudioManager.AUDIOFOCUS_GAIN:
+                mHasAudioFocus = true;
+                if (mResumeOnFocusGain) {
+                    mResumeOnFocusGain = false;
+                    MainActivity.triggerPlayPause();
+                }
+                break;
+        }
+    };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -149,7 +234,7 @@ public class MusicService extends Service {
                 long mediaId = intent.getLongExtra(EXTRA_MEDIA_ID, mMediaId);
                 long albumId = intent.getLongExtra(EXTRA_ALBUM_ID, mAlbumId);
 
-                if (title != null) mCurrentTitle = title;
+                if (title != null && !title.isEmpty()) mCurrentTitle = title;
                 if (artist != null) mCurrentArtist = artist;
                 if (album != null) mCurrentAlbum = album;
                 mIsPlaying = isPlaying;
@@ -166,13 +251,21 @@ public class MusicService extends Service {
 
                 updatePlaybackState(mIsPlaying);
                 Notification notification = buildNotification();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-                } else {
-                    startForeground(NOTIFICATION_ID, notification);
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification);
+                    }
+                    if (mNotificationManager != null) {
+                        mNotificationManager.notify(NOTIFICATION_ID, notification);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
 
                 if (mIsPlaying) {
+                    requestAudioFocus();
                     acquireWakeLock();
                 } else {
                     releaseWakeLock();
@@ -181,9 +274,16 @@ public class MusicService extends Service {
             } else if (ACTION_UPDATE_POSITION.equals(action)) {
                 long pos = intent.getLongExtra(EXTRA_POSITION, mPositionMs);
                 boolean isPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, mIsPlaying);
+                boolean stateChanged = (mIsPlaying != isPlaying);
                 mPositionMs = Math.max(0, pos);
                 mIsPlaying = isPlaying;
                 updatePlaybackState(mIsPlaying);
+
+                if (stateChanged && mNotificationManager != null) {
+                    try {
+                        mNotificationManager.notify(NOTIFICATION_ID, buildNotification());
+                    } catch (Exception ignored) {}
+                }
 
             } else if (ACTION_TOGGLE.equals(action)) {
                 MainActivity.triggerPlayPause();
@@ -193,6 +293,7 @@ public class MusicService extends Service {
                 MainActivity.triggerPrev();
             } else if (ACTION_STOP.equals(action)) {
                 MainActivity.triggerStop();
+                abandonAudioFocus();
                 releaseWakeLock();
                 stopForeground(true);
                 stopSelf();
@@ -312,7 +413,8 @@ public class MusicService extends Service {
             builder = new Notification.Builder(this);
         }
 
-        builder.setSmallIcon(R.drawable.ic_launcher)
+        builder.setSmallIcon(R.drawable.ic_notification)
+            .setColor(0xFFE52B2B)
             .setContentTitle(mCurrentTitle)
             .setContentText(mCurrentArtist + (mCurrentAlbum != null && !mCurrentAlbum.isEmpty() ? " // " + mCurrentAlbum : ""))
             .setContentIntent(pContentIntent)
@@ -341,7 +443,7 @@ public class MusicService extends Service {
 
     private void acquireWakeLock() {
         if (mWakeLock != null && !mWakeLock.isHeld()) {
-            mWakeLock.acquire();
+            mWakeLock.acquire(3600000); // 1 hour max safeguard
         }
     }
 
@@ -358,6 +460,7 @@ public class MusicService extends Service {
 
     @Override
     public void onDestroy() {
+        abandonAudioFocus();
         releaseWakeLock();
         if (mMediaSession != null) {
             mMediaSession.release();

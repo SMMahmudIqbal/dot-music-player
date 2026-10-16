@@ -215,19 +215,24 @@ public class MainActivity extends Activity {
     }
 
     private void checkPermissionsAndScan() {
-        if (hasStoragePermission()) {
+        java.util.List<String> needed = new java.util.ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.READ_MEDIA_AUDIO);
+            }
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+
+        if (needed.isEmpty()) {
             performDeviceAudioScan();
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requestPermissions(new String[]{
-                    Manifest.permission.READ_MEDIA_AUDIO,
-                    Manifest.permission.POST_NOTIFICATIONS
-                }, PERMISSION_REQUEST_CODE);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                }, PERMISSION_REQUEST_CODE);
-            }
+            requestPermissions(needed.toArray(new String[0]), PERMISSION_REQUEST_CODE);
         }
     }
 
@@ -235,11 +240,7 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            boolean granted = false;
-            if (grantResults != null && grantResults.length > 0) {
-                granted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            }
-            if (granted) {
+            if (hasStoragePermission()) {
                 performDeviceAudioScan();
             } else {
                 Toast.makeText(this, "Storage permission required to scan device audio", Toast.LENGTH_LONG).show();
@@ -634,7 +635,11 @@ public class MainActivity extends Activity {
                     intent.setAction(MusicService.ACTION_UPDATE_POSITION);
                     intent.putExtra(MusicService.EXTRA_POSITION, positionMs);
                     intent.putExtra(MusicService.EXTRA_IS_PLAYING, isPlaying);
-                    startService(intent);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent);
+                    } else {
+                        startService(intent);
+                    }
                 } catch (Exception ignored) {}
             });
         }
@@ -661,9 +666,9 @@ public class MainActivity extends Activity {
 
         public int start() throws Exception {
             try {
-                mServerSocket = new ServerSocket(28492, 50, InetAddress.getByName("127.0.0.1"));
+                mServerSocket = new ServerSocket(28492, 100, InetAddress.getByName("127.0.0.1"));
             } catch (Exception e) {
-                mServerSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+                mServerSocket = new ServerSocket(0, 100, InetAddress.getByName("127.0.0.1"));
             }
             mIsRunning = true;
             new Thread(this::listen).start();
@@ -682,7 +687,7 @@ public class MainActivity extends Activity {
         private void handleClient(Socket socket) {
             try {
                 socket.setTcpNoDelay(true);
-                socket.setSendBufferSize(65536);
+                socket.setSendBufferSize(131072);
                 InputStream in = socket.getInputStream();
                 OutputStream out = socket.getOutputStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(in));
@@ -814,8 +819,8 @@ public class MainActivity extends Activity {
                                     fis.getChannel().position(start);
                                 }
 
-                                java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 65536);
-                                byte[] buffer = new byte[65536];
+                                java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 131072);
+                                byte[] buffer = new byte[131072];
                                 long remaining = contentLength;
                                 while (remaining > 0) {
                                     int toRead = (int) Math.min(buffer.length, remaining);
@@ -940,6 +945,18 @@ public class MainActivity extends Activity {
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Intentionally DO NOT call mWebView.onPause() so background WebAudio playback remains active
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Intentionally DO NOT call mWebView.onStop() to prevent freezing background audio decoder
     }
 
     @Override

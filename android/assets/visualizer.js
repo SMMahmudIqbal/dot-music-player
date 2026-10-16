@@ -71,7 +71,10 @@ class AsciiVisualizer {
   }
 
   start() {
-    if (this.animationId) cancelAnimationFrame(this.animationId);
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
 
     if (!this._visibilityBound) {
       this._visibilityBound = true;
@@ -90,13 +93,18 @@ class AsciiVisualizer {
     }
 
     const loop = () => {
-      if (!document.hidden) {
-        this.render();
-        this.frame++;
+      if (document.hidden) {
+        this.animationId = null;
+        return;
       }
+      this.render();
+      this.frame++;
       this.animationId = requestAnimationFrame(loop);
     };
-    loop();
+
+    if (!document.hidden) {
+      this.animationId = requestAnimationFrame(loop);
+    }
   }
 
   stop() {

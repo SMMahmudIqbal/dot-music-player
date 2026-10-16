@@ -1623,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Hi-Res Audio Stream Inspector & Hardware DAC Telemetry
   function updateTelemetry() {
+    if (document.hidden) return; // Halt telemetry processing when in background
     if (!el.telemSampleRate) return;
     const telem = audioEngine.getAudioTelemetry();
     el.telemSampleRate.textContent = `${(telem.sampleRate || 48000).toLocaleString()} HZ`;
@@ -2010,10 +2011,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const spacing = 32;
+    let meshRafId = null;
 
     function renderMesh() {
+      if (document.hidden) {
+        meshRafId = null;
+        return;
+      }
+
       if (!state.ambientMeshEnabled) {
-        requestAnimationFrame(renderMesh);
+        meshRafId = requestAnimationFrame(renderMesh);
         return;
       }
 
@@ -2073,10 +2080,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       ctx.globalAlpha = 1.0;
-      requestAnimationFrame(renderMesh);
+      meshRafId = requestAnimationFrame(renderMesh);
     }
 
-    requestAnimationFrame(renderMesh);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !meshRafId && state.ambientMeshEnabled) {
+        meshRafId = requestAnimationFrame(renderMesh);
+      }
+    });
+
+    if (!document.hidden) {
+      meshRafId = requestAnimationFrame(renderMesh);
+    }
   }
 
   initAmbientMesh();

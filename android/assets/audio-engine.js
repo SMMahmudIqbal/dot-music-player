@@ -8,7 +8,7 @@ class AudioEngine {
   constructor() {
     this.audio = new Audio();
     this.audio.crossOrigin = 'anonymous';
-    this.audio.preload = 'metadata';
+    this.audio.preload = 'auto';
 
     this.audioCtx = null;
     this.sourceNode = null;
