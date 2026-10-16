@@ -630,17 +630,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void updatePlaybackPosition(long positionMs, boolean isPlaying) {
             runOnUiThread(() -> {
-                try {
-                    Intent intent = new Intent(MainActivity.this, MusicService.class);
-                    intent.setAction(MusicService.ACTION_UPDATE_POSITION);
-                    intent.putExtra(MusicService.EXTRA_POSITION, positionMs);
-                    intent.putExtra(MusicService.EXTRA_IS_PLAYING, isPlaying);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent);
-                    } else {
-                        startService(intent);
-                    }
-                } catch (Exception ignored) {}
+                MusicService.updatePositionDirect(positionMs, isPlaying);
             });
         }
 
