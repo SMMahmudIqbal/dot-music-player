@@ -89,6 +89,15 @@ public class MainActivity extends Activity {
         }
     }
 
+    public static void triggerSeek(long positionMs) {
+        if (sInstance != null && sInstance.mWebView != null) {
+            double seconds = positionMs / 1000.0;
+            sInstance.runOnUiThread(() -> {
+                sInstance.mWebView.evaluateJavascript("if (window.audioEngine) { window.audioEngine.seek(" + seconds + "); }", null);
+            });
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -588,7 +597,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void updatePlaybackState(boolean isPlaying, String title, String artist, String album) {
+        public void updatePlaybackState(boolean isPlaying, String title, String artist, String album, long durationMs, long positionMs, long mediaId, long albumId) {
             runOnUiThread(() -> {
                 try {
                     Intent intent = new Intent(MainActivity.this, MusicService.class);
@@ -597,6 +606,10 @@ public class MainActivity extends Activity {
                     intent.putExtra(MusicService.EXTRA_TITLE, title);
                     intent.putExtra(MusicService.EXTRA_ARTIST, artist);
                     intent.putExtra(MusicService.EXTRA_ALBUM, album);
+                    intent.putExtra(MusicService.EXTRA_DURATION, durationMs);
+                    intent.putExtra(MusicService.EXTRA_POSITION, positionMs);
+                    intent.putExtra(MusicService.EXTRA_MEDIA_ID, mediaId);
+                    intent.putExtra(MusicService.EXTRA_ALBUM_ID, albumId);
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(intent);
                     } else {
@@ -605,6 +618,24 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            });
+        }
+
+        @JavascriptInterface
+        public void updatePlaybackState(boolean isPlaying, String title, String artist, String album) {
+            updatePlaybackState(isPlaying, title, artist, album, -1, 0, -1, -1);
+        }
+
+        @JavascriptInterface
+        public void updatePlaybackPosition(long positionMs, boolean isPlaying) {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(MainActivity.this, MusicService.class);
+                    intent.setAction(MusicService.ACTION_UPDATE_POSITION);
+                    intent.putExtra(MusicService.EXTRA_POSITION, positionMs);
+                    intent.putExtra(MusicService.EXTRA_IS_PLAYING, isPlaying);
+                    startService(intent);
+                } catch (Exception ignored) {}
             });
         }
 

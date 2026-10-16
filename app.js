@@ -589,11 +589,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderTrackList();
       setupMediaSession(track);
       if (window.AndroidApp && window.AndroidApp.updatePlaybackState) {
+        const durMs = Math.round((track.duration || audioEngine.audio.duration || 0) * 1000);
+        const posMs = Math.round((audioEngine.audio.currentTime || 0) * 1000);
+        const mId = track.mediaId || -1;
+        const aId = track.albumId || -1;
         window.AndroidApp.updatePlaybackState(
           true,
           track.title || track.name,
           track.artist || 'Unknown Artist',
-          track.album || 'Local Storage'
+          track.album || 'Local Storage',
+          durMs,
+          posMs,
+          mId,
+          aId
         );
       }
       showToast(`PLAYING: ${track.title}`);
@@ -716,6 +724,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Audio Engine Hooks
+  audioEngine.onMetadataLoaded = (duration) => {
+    if (el.timeTotal) el.timeTotal.textContent = formatTime(duration);
+    const currentTrack = state.library[state.currentTrackIndex];
+    if (window.AndroidApp && window.AndroidApp.updatePlaybackState && currentTrack) {
+      const durMs = Math.round(duration * 1000);
+      const posMs = Math.round((audioEngine.audio.currentTime || 0) * 1000);
+      const mId = currentTrack.mediaId || -1;
+      const aId = currentTrack.albumId || -1;
+      window.AndroidApp.updatePlaybackState(
+        !audioEngine.audio.paused,
+        currentTrack.title || currentTrack.name,
+        currentTrack.artist || 'Unknown Artist',
+        currentTrack.album || 'Local Storage',
+        durMs,
+        posMs,
+        mId,
+        aId
+      );
+    }
+  };
+
   audioEngine.onTimeUpdate = (current, total) => {
     if (el.timeCurrent) el.timeCurrent.textContent = formatTime(current);
     if (el.timeTotal) el.timeTotal.textContent = formatTime(total);
@@ -777,7 +806,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const title = currentTrack ? (currentTrack.title || currentTrack.name) : 'Dot Music Player';
       const artist = currentTrack ? (currentTrack.artist || 'Unknown Artist') : 'Offline Audio';
       const album = currentTrack ? (currentTrack.album || 'Local Storage') : 'Nothing OS';
-      window.AndroidApp.updatePlaybackState(isPlaying, title, artist, album);
+      const durMs = currentTrack ? Math.round((currentTrack.duration || audioEngine.audio.duration || 0) * 1000) : 0;
+      const posMs = Math.round((audioEngine.audio.currentTime || 0) * 1000);
+      const mId = currentTrack ? (currentTrack.mediaId || -1) : -1;
+      const aId = currentTrack ? (currentTrack.albumId || -1) : -1;
+      window.AndroidApp.updatePlaybackState(isPlaying, title, artist, album, durMs, posMs, mId, aId);
     }
   };
 
@@ -903,6 +936,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (dur) {
         const targetSec = (el.seekSlider.value / 1000) * dur;
         audioEngine.seek(targetSec);
+        if (window.AndroidApp && window.AndroidApp.updatePlaybackPosition) {
+          window.AndroidApp.updatePlaybackPosition(Math.round(targetSec * 1000), !audioEngine.audio.paused);
+        }
       }
     });
   }
