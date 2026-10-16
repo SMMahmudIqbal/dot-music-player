@@ -32,13 +32,13 @@ Remove-Item android\bin\aligned.apk -ErrorAction SilentlyContinue
 & "$BUILD_TOOLS\zipalign.exe" -f -p 4 android\bin\unaligned.apk android\bin\aligned.apk
 if ($LASTEXITCODE -ne 0) { throw "zipalign failed" }
 
-Write-Host ">>> 7. Signing APK with debug keystore..."
+Write-Host ">>> 7. Signing APK with release keystore..."
 Remove-Item DotMusicPlayer.apk -ErrorAction SilentlyContinue
-& "$BUILD_TOOLS\apksigner.bat" sign --ks android\debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out DotMusicPlayer.apk android\bin\aligned.apk
+& "$BUILD_TOOLS\apksigner.bat" sign --ks android\release.keystore --ks-pass pass:dotmusic2026 --ks-key-alias dotmusic --key-pass pass:dotmusic2026 --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out DotMusicPlayer.apk android\bin\aligned.apk
 if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
 
 Write-Host ">>> 8. Verifying APK signature..."
-& "$BUILD_TOOLS\apksigner.bat" verify DotMusicPlayer.apk
+& "$BUILD_TOOLS\apksigner.bat" verify --verbose DotMusicPlayer.apk
 if ($LASTEXITCODE -ne 0) { throw "apksigner verification failed" }
 
 $apkItem = Get-Item DotMusicPlayer.apk
