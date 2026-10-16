@@ -11,7 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Dot Music Player // Nothing OS</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="icon" type="image/webp" href="icon.webp">
+  <link rel="apple-touch-icon" href="icon.webp">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,21 +28,7 @@
   <header class="nothing-header">
     <div class="brand-section">
       <div class="brand-logo" id="header-brand-logo">
-        <svg class="brand-note-icon" viewBox="0 0 36 36" width="24" height="24" fill="none">
-          <circle cx="12" cy="10" r="2" fill="#f0f0f0"/>
-          <circle cx="18" cy="8.5" r="2" fill="#f0f0f0"/>
-          <circle cx="24" cy="7" r="2.4" fill="#e52b2b"/>
-          <circle cx="12" cy="15" r="1.7" fill="#f0f0f0"/>
-          <circle cx="12" cy="20" r="1.7" fill="#f0f0f0"/>
-          <circle cx="12" cy="25" r="1.7" fill="#f0f0f0"/>
-          <circle cx="24" cy="12" r="1.7" fill="#f0f0f0"/>
-          <circle cx="24" cy="17" r="1.7" fill="#f0f0f0"/>
-          <circle cx="24" cy="22" r="1.7" fill="#f0f0f0"/>
-          <circle cx="9" cy="27" r="4.2" fill="#e52b2b"/>
-          <circle cx="9" cy="27" r="1.5" fill="#ffffff"/>
-          <circle cx="21" cy="24" r="4" fill="#f0f0f0"/>
-          <circle cx="21" cy="24" r="1.5" fill="#070707"/>
-        </svg>
+        <img src="icon.webp" class="brand-note-img" width="28" height="28" alt="Dot Music Player">
         <span>DOT (PLAYER)</span>
       </div>
       <span class="brand-status-chip" id="header-track-count">0 TRACKS</span>
@@ -83,7 +70,7 @@
 
       <!-- Now Playing Info Banner -->
       <div class="now-playing-banner">
-        <img class="album-art-large" id="now-playing-art" src="icon.svg" alt="Album Artwork">
+        <img class="album-art-large" id="now-playing-art" src="icon.webp" alt="Album Artwork">
         <div class="track-main-info">
           <div class="track-hero-title" id="hero-title">READY TO PLAY</div>
           <div class="track-hero-artist" id="hero-artist">AUTOSCAN STORAGE OR TAP DEMO SYNTH</div>
@@ -446,7 +433,7 @@
     <div class="mini-seek-line" id="mini-seek-line"></div>
     <div class="mini-player-content">
       <div class="mini-player-left" id="mini-player-left">
-        <img class="mini-album-art" id="mini-album-art" src="icon.svg" alt="Mini Art">
+        <img class="mini-album-art" id="mini-album-art" src="icon.webp" alt="Mini Art">
         <div class="mini-track-meta">
           <div class="mini-track-title" id="mini-track-title">READY TO PLAY</div>
           <div class="mini-track-artist" id="mini-track-artist">TAP TO EXPAND</div>

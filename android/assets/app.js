@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const coverHtml = track.picture 
         ? `<img class="track-cover-mini" src="${track.picture}" alt="Art"/>`
-        : `<img class="track-cover-mini" src="icon.svg" alt="Art"/>`;
+        : `<img class="track-cover-mini" src="icon.webp" alt="Art"/>`;
 
       item.innerHTML = `
         <div class="track-item-left">
@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.heroFormat) el.heroFormat.textContent = track.format || 'AUDIO';
     if (el.heroSize) el.heroSize.textContent = formatBytes(track.size);
 
-    if (!track.picture || track.picture === 'icon.svg') {
+    if (!track.picture || track.picture === 'icon.svg' || track.picture === 'icon.webp') {
       track.picture = AsciiVisualizer.generateDotMatrixCoverArt(
         track.title || track.name,
         track.artist || 'Local Audio',
