@@ -66,38 +66,10 @@
     <!-- VIEW 1: PLAYER (Active by default on mobile) -->
     <section class="view-panel player-view active" id="view-player">
 
-      <!-- ASCII Visualizer Card -->
-      <div class="visualizer-card" id="visualizer-card">
-        <div class="visualizer-top-bar">
-          <div class="visualizer-mode-badge">
-            <span style="color: var(--accent-red);">[·]</span>
-            <span id="vis-mode-label">NOTHING DOT SPECTRUM</span>
-          </div>
-
-          <div style="display: flex; gap: 4px;">
-            <button class="btn" id="btn-toggle-lyrics" style="font-size: 9px; padding: 2px 7px;">LYRICS</button>
-            <button class="btn" id="btn-cycle-vis" style="font-size: 9px; padding: 2px 7px;">CYCLE</button>
-            <button class="btn" id="btn-vis-theme" style="font-size: 9px; padding: 2px 7px;">COLOR</button>
-          </div>
-        </div>
-
-        <!-- Mode selector pills with smooth touch scroll -->
-        <div class="visualizer-tabs-scroll">
-          <button class="vis-tab-pill active" data-mode="0">SPECTRUM</button>
-          <button class="vis-tab-pill" data-mode="1">OSCILLO</button>
-          <button class="vis-tab-pill" data-mode="2">STEREO VU</button>
-          <button class="vis-tab-pill" data-mode="3">RAIN</button>
-          <button class="vis-tab-pill" data-mode="4">3D TUNNEL</button>
-          <button class="vis-tab-pill" data-mode="5">RADAR</button>
-          <button class="vis-tab-pill" data-mode="6">PARTICLES</button>
-        </div>
-
-        <!-- ASCII Screen Frame -->
+      <!-- ASCII Visualizer Card (Full-Area Pure Animation, Zero Text) -->
+      <div class="visualizer-card" id="visualizer-card" title="Tap to cycle mode // Double tap to change color">
         <div class="ascii-screen-frame">
-          <pre class="ascii-display" id="ascii-visualizer">
- [·] DOT MUSIC // NOTHING OS
- OFFLINE AUDIO READY
-          </pre>
+          <pre class="ascii-display" id="ascii-visualizer"></pre>
           <div class="lyrics-display-overlay" id="lyrics-display" style="display: none;">
             <div class="lyrics-header">[·] SYNCED METADATA & LYRICS HUD</div>
             <div class="lyrics-scroll-container" id="lyrics-scroll">

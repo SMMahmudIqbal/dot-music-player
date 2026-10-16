@@ -922,42 +922,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 6. Visualizer Mode Switching, Theme & Fullscreen
-  if (el.visModeTabs) {
-    el.visModeTabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
-        triggerHaptic(12);
-        el.visModeTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const modeIndex = parseInt(tab.dataset.mode, 10);
-        const name = visualizer.setMode(modeIndex);
-        if (el.visModeLabel) el.visModeLabel.textContent = name;
-        showToast(`VISUALIZER: ${name}`);
-      });
-    });
-  }
+  // 6. Visualizer Gestures & Touch Interactions (Full-Area Pure Animation Screen)
+  if (visualizerCard) {
+    let tapTimeout = null;
+    let lastTapTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
 
-  if (el.btnCycleVis) {
-    el.btnCycleVis.addEventListener('click', () => {
-      triggerHaptic(15);
-      const name = visualizer.nextMode();
-      if (el.visModeLabel) el.visModeLabel.textContent = name;
-      el.visModeTabs.forEach(t => {
-        t.classList.toggle('active', parseInt(t.dataset.mode, 10) === visualizer.mode);
-      });
-      showToast(`VISUALIZER: ${name}`);
-    });
-  }
+    visualizerCard.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
 
-  if (el.btnVisTheme) {
-    const themes = ['mono', 'red', 'green', 'amber'];
-    let themeIdx = 0;
-    el.btnVisTheme.addEventListener('click', () => {
-      triggerHaptic(12);
-      themeIdx = (themeIdx + 1) % themes.length;
-      const theme = themes[themeIdx];
-      visualizer.setColorTheme(theme);
-      showToast(`THEME: ${theme.toUpperCase()}`);
+    visualizerCard.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 1) {
+        const diffX = e.changedTouches[0].clientX - touchStartX;
+        const diffY = e.changedTouches[0].clientY - touchStartY;
+
+        // Horizontal swipe to cycle modes
+        if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+          triggerHaptic(15);
+          const name = diffX < 0 ? visualizer.nextMode() : visualizer.prevMode();
+          showToast(name);
+          return;
+        }
+
+        // Tap & Double tap detection
+        const now = Date.now();
+        if (now - lastTapTime < 280) {
+          if (tapTimeout) {
+            clearTimeout(tapTimeout);
+            tapTimeout = null;
+          }
+          triggerHaptic(20);
+          const theme = visualizer.nextTheme();
+          showToast(`THEME: ${theme.toUpperCase()}`);
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+        tapTimeout = setTimeout(() => {
+          triggerHaptic(15);
+          const name = visualizer.nextMode();
+          showToast(name);
+          tapTimeout = null;
+        }, 280);
+      }
+    }, { passive: true });
+
+    // Desktop mouse click handler
+    visualizerCard.addEventListener('click', (e) => {
+      if (e.pointerType === 'mouse' || (!('ontouchstart' in window))) {
+        triggerHaptic(15);
+        const name = visualizer.nextMode();
+        showToast(name);
+      }
     });
   }
 
@@ -1574,7 +1595,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el.btnMute) el.btnMute.click();
         break;
       case 'KeyV':
-        if (el.btnCycleVis) el.btnCycleVis.click();
+        triggerHaptic(15);
+        showToast(visualizer.nextMode());
+        break;
+      case 'KeyC':
+        triggerHaptic(15);
+        showToast(`THEME: ${visualizer.nextTheme().toUpperCase()}`);
         break;
       case 'KeyF':
         toggleFullscreenVis();

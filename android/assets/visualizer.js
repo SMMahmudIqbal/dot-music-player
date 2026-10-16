@@ -62,6 +62,14 @@ class AsciiVisualizer {
     }
   }
 
+  nextTheme() {
+    const themes = ['mono', 'red', 'green', 'amber'];
+    const curIdx = themes.indexOf(this.colorTheme);
+    const next = themes[(curIdx + 1) % themes.length];
+    this.setColorTheme(next);
+    return next;
+  }
+
   start() {
     if (this.animationId) cancelAnimationFrame(this.animationId);
 
@@ -134,32 +142,30 @@ class AsciiVisualizer {
   }
 
   /**
-   * Mode 0: Nothing OS Dot Matrix Spectrum Analyzer (Mobile-safe width)
+   * Mode 0: Full-Area Nothing OS Dot Matrix Spectrum Analyzer (Zero Text)
    */
   renderDotSpectrum(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
     const mobile = this.isMobile();
-    const bandsCount = mobile ? 16 : 28;
-    const height = mobile ? 9 : 11;
-    const dotLevels = [' ', '·', ':', '•', 'o', 'O', '8', '●'];
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
+    const bandsCount = Math.floor(cols / 2);
+    const step = Math.max(1, Math.floor(rawData.length / (bandsCount * 1.6)));
 
-    const bandValues = [];
-    const step = Math.max(1, Math.floor(rawData.length / (bandsCount * 1.5)));
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
 
     for (let b = 0; b < bandsCount; b++) {
       let sum = 0;
       let count = 0;
-      const startIdx = Math.floor(Math.pow(b / bandsCount, 1.6) * (rawData.length - step));
+      const startIdx = Math.floor(Math.pow(b / bandsCount, 1.7) * (rawData.length - step));
       for (let k = 0; k < step && (startIdx + k) < rawData.length; k++) {
         sum += rawData[startIdx + k];
         count++;
       }
       let val = count > 0 ? (sum / count) / 255 : 0;
-      
       if (!isPlaying) {
-        val = 0.08 + 0.05 * Math.sin((this.frame * 0.04) + (b * 0.3));
+        val = 0.08 + 0.05 * Math.sin((this.frame * 0.05) + (b * 0.35));
       }
-      bandValues.push(val);
 
       if (val >= (this.peakLevels[b] || 0)) {
         this.peakLevels[b] = val;
@@ -168,331 +174,123 @@ class AsciiVisualizer {
         this.peakDecay[b] = (this.peakDecay[b] || 0) + 0.015;
         this.peakLevels[b] = Math.max(0, this.peakLevels[b] - this.peakDecay[b]);
       }
-    }
 
-    const lines = [];
-    const innerWidth = bandsCount * 2;
-    const border = '─'.repeat(innerWidth + 1);
+      const activeHeight = Math.round(val * rows);
+      const peakRow = rows - 1 - Math.min(rows - 1, Math.round((this.peakLevels[b] || 0) * rows));
+      const col1 = b * 2;
+      const col2 = b * 2 + 1;
 
-    if (mobile) {
-      lines.push(' [·] DOT SPECTRUM FFT [32Hz-16kHz]');
-      lines.push(' ┌' + border + '┐');
-    } else {
-      lines.push(' [·] NOTHING DOT SPECTRUM // 32Hz-16kHz');
-      lines.push(' ┌' + border + '┐');
-    }
-
-    for (let row = height - 1; row >= 0; row--) {
-      const rowThreshold = (row + 1) / height;
-      const prevThreshold = row / height;
-      let line = ' │';
-
-      for (let b = 0; b < bandsCount; b++) {
-        const val = bandValues[b];
-        const peak = this.peakLevels[b] || 0;
-        const isPeakRow = Math.abs(peak - rowThreshold) < (0.5 / height);
-
-        if (isPeakRow && peak > 0.15 && isPlaying) {
-          line += '─ ';
-        } else if (val >= rowThreshold) {
-          line += '● ';
-        } else if (val > prevThreshold) {
-          const frac = (val - prevThreshold) / (rowThreshold - prevThreshold);
-          const charIdx = Math.min(dotLevels.length - 1, Math.floor(frac * dotLevels.length));
-          line += dotLevels[charIdx] + ' ';
-        } else {
-          line += '· ';
+      for (let r = 0; r < rows; r++) {
+        const rowFromBottom = rows - 1 - r;
+        if (r === peakRow && (this.peakLevels[b] || 0) > 0.08) {
+          grid[r][col1] = '─';
+          grid[r][col2] = '─';
+        } else if (rowFromBottom < activeHeight) {
+          const glyph = rowFromBottom > rows * 0.7 ? '█' : (rowFromBottom > rows * 0.4 ? '●' : (rowFromBottom > rows * 0.15 ? '•' : ':'));
+          grid[r][col1] = glyph;
+          grid[r][col2] = ' ';
+        } else if (r === rows - 1) {
+          grid[r][col1] = '·';
+          grid[r][col2] = ' ';
         }
       }
-      line += '│';
-      lines.push(line);
     }
 
-    lines.push(' ├' + border + '┤');
-    if (mobile) {
-      lines.push(' │ 32 64 125 250 1K 2K 4K 8K 16K │');
-    } else {
-      lines.push(' │ 32  64  125 250 500  1K  2K  3K  4K  6K  8K  12K 16K  │');
-    }
-    lines.push(' └' + border + '┘');
-
-    return lines.join('\n');
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 1: Retro Reel Cassette Tape (Mobile-safe 36 chars)
-   */
-  renderCassetteTape(isPlaying) {
-    const rawData = this.audioEngine.getFrequencyData();
-    let bass = 0;
-    for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
-    bass = bass / (6 * 255);
-
-    if (isPlaying) {
-      this.spoolAngle += 0.2 + (bass * 0.2);
-    }
-
-    const spokes = ['|', '/', '-', '\\'];
-    const s1 = isPlaying ? spokes[Math.floor(this.spoolAngle) % 4] : '|';
-    const s2 = isPlaying ? spokes[Math.floor(this.spoolAngle * 1.05) % 4] : '|';
-
-    const curTime = this.audioEngine.audio.currentTime || 0;
-    const durTime = this.audioEngine.audio.duration || 1;
-    const progress = Math.max(0, Math.min(1, curTime / durTime));
-
-    const leftSpool = progress < 0.5 ? '( (●) )' : '( ● )';
-    const rightSpool = progress > 0.5 ? '( (●) )' : '( ● )';
-
-    const formatTime = (t) => {
-      const m = Math.floor(t / 60);
-      const s = Math.floor(t % 60);
-      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-    };
-
-    if (this.isMobile()) {
-      return [
-        ` /================================\\`,
-        ` | [DOT MUSIC]   TYPE-II CHROME o |`,
-        ` | +----------------------------+ |`,
-        ` | | ( ${s1} )   [${formatTime(curTime)}/${formatTime(durTime)}]   ( ${s2} ) | |`,
-        ` | | ${leftSpool}  ============  ${rightSpool} | |`,
-        ` | |     [·] MAGNETIC STEREO    | |`,
-        ` | +----------------------------+ |`,
-        ` |  DOLBY B-C NR  |  NOTHING OS   |`,
-        ` \\================================/`
-      ].join('\n');
-    }
-
-    return [
-      ` /==========================================\\`,
-      ` | [DOT MUSIC]      :: TYPE-II CHROME ::  o |`,
-      ` | +--------------------------------------+ |`,
-      ` | |  ( ${s1} )    [ TAPE: ${formatTime(curTime)} / ${formatTime(durTime)} ]    ( ${s2} ) | |`,
-      ` | | ${leftSpool}    ====================    ${rightSpool} | |`,
-      ` | |        [·] MAGNETIC HIGH DEFINITION  | |`,
-      ` | +--------------------------------------+ |`,
-      ` |   [A] SIDE   |  OFFLINE STEREO  | NOTHING|`,
-      ` \\==========================================/`
-    ].join('\n');
-  }
-
-  /**
-   * Mode 2: Vinyl Turntable (Mobile-safe 36 chars)
-   */
-  renderVinylTurntable(isPlaying) {
-    const rawData = this.audioEngine.getFrequencyData();
-    let bass = 0;
-    for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
-    bass = bass / (6 * 255);
-
-    if (isPlaying) {
-      this.spoolAngle += 0.25;
-    }
-
-    const curTime = this.audioEngine.audio.currentTime || 0;
-    const durTime = this.audioEngine.audio.duration || 1;
-    const progress = Math.max(0, Math.min(1, curTime / durTime));
-    const armVibe = isPlaying && bass > 0.4 ? '•' : '=';
-
-    if (this.isMobile()) {
-      return [
-        ` +------- DIRECT DRIVE TURNTABLE -------+`,
-        ` |         . - ~ ~ ~ - .      [ARM 33]  |`,
-        ` |       . '  /~~~~~\\  ' .      ┌─┐     |`,
-        ` |      /   (  /~~~\\  )   \\     │O│(PIV)|`,
-        ` |     |   ( ( [·] ) ) )   |====${armVibe}=>[H] |`,
-        ` |      \\   (  \\___/  )   /      ▼ (NDL)|`,
-        ` |       . _  \\_____/  _ .    [${Math.round(progress*100)}% GROV] |`,
-        ` |         ' - _ _ _ - '      [${isPlaying ? 'PLAY' : 'IDLE'}]     |`,
-        ` +--------------------------------------+`
-      ].join('\n');
-    }
-
-    return [
-      ` +----------------- DIRECT DRIVE TURNTABLE -----------------+`,
-      ` |              . - ~ ~ ~ ~ ~ ~ ~ - .        [TONEARM 33]   |`,
-      ` |          . '     /~~~~~~~~~\\     ' .         ┌───┐       |`,
-      ` |        /       (   /~~~~~\\   )       \\       │ O │       |`,
-      ` |       |       (   ( [·*·] )   )       |======${armVibe}====>[H]|`,
-      ` |        \\       (   \\_____/   )       /         ▼ (NEEDLE)|`,
-      ` |          . _     \\_________/     _ .         [GROOVE: ${Math.round(progress * 100)}%] |`,
-      ` |              ' - _ _ _ _ _ _ _ - '           [NOTHING OS]|`,
-      ` +----------------------------------------------------------+`
-    ].join('\n');
-  }
-
-  /**
-   * Mode 3: Cyber Oscilloscope
+   * Mode 1: Full-Area Dual Trace Phosphor Oscilloscope (Zero Text)
    */
   renderOscilloscope(isPlaying) {
     const wave = this.audioEngine.getTimeDomainData();
     const mobile = this.isMobile();
-    const width = mobile ? 34 : 54;
-    const height = mobile ? 9 : 11;
-    const grid = Array.from({ length: height }, () => Array(width).fill(' '));
-    const midY = Math.floor(height / 2);
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
+    const midY = Math.floor(rows / 2);
+
+    const grid = Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: cols }, (_, c) => {
+        if (r === midY && c % 3 === 0) return '·';
+        if (c % 8 === 0 && (r === midY - 4 || r === midY + 4)) return '·';
+        return ' ';
+      })
+    );
 
     if (isPlaying) {
-      for (let x = 0; x < width; x++) {
-        const sampleIdx = Math.floor((x / width) * wave.length);
+      let prevY = midY;
+      const amp = (rows / 2) - 1.2;
+      for (let c = 0; c < cols; c++) {
+        const sampleIdx = Math.floor((c / cols) * wave.length);
         const norm = (wave[sampleIdx] - 128) / 128;
-        let y = midY - Math.round(norm * (height / 2.2));
-        y = Math.max(0, Math.min(height - 1, y));
-        grid[y][x] = norm > 0.05 || norm < -0.05 ? '█' : '─';
+        const y = Math.max(0, Math.min(rows - 1, Math.round(midY - (norm * amp))));
+        const minY = Math.min(prevY, y);
+        const maxY = Math.max(prevY, y);
+        for (let k = minY; k <= maxY; k++) {
+          grid[k][c] = (k === y) ? '█' : (Math.abs(k - midY) > 3 ? '█' : '│');
+        }
+        prevY = y;
       }
     } else {
-      const sweepX = Math.floor((this.frame * 0.8) % width);
-      for (let x = 0; x < width; x++) {
-        grid[midY][x] = x === sweepX ? '●' : '─';
-      }
+      for (let c = 0; c < cols; c++) grid[midY][c] = '─';
+      const sweepX = Math.floor((this.frame * 0.9) % cols);
+      if (sweepX >= 0 && sweepX < cols) grid[midY][sweepX] = '●';
     }
 
-    const lines = [];
-    lines.push(' [·] DUAL TRACE PHOSPHOR OSCILLOSCOPE');
-    lines.push(' ┌' + '─'.repeat(width + 2) + '┐');
-    for (let r = 0; r < height; r++) {
-      let line = ' │ ';
-      for (let c = 0; c < width; c++) {
-        if (grid[r][c] === ' ' && (r === midY || c % 8 === 0)) {
-          line += '·';
-        } else {
-          line += grid[r][c];
-        }
-      }
-      line += ' │';
-      lines.push(line);
-    }
-    lines.push(' └' + '─'.repeat(width + 2) + '┘');
-    lines.push(mobile ? ' TIME/DIV: 2.0ms  TRIGGER: AUTO' : ' VOLTS: 50mV  TIME/DIV: 2.0ms  TRIGGER: AUTO');
-    return lines.join('\n');
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 4: Stereo VU Meters
+   * Mode 2: Full-Area Stereo VU Meters (Zero Text)
    */
   renderStereoVU(isPlaying) {
-    const vu = isPlaying ? this.audioEngine.getStereoVU() : { left: 0.02, right: 0.02, peakL: 0.02, peakR: 0.02 };
+    const vu = isPlaying ? this.audioEngine.getStereoVU() : { left: 0.05, right: 0.05, peakL: 0.05, peakR: 0.05 };
     const mobile = this.isMobile();
-    const meterWidth = mobile ? 20 : 32;
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
+    const midY = Math.floor(rows / 2);
 
-    this.vuNeedleL += (vu.left - this.vuNeedleL) * 0.25;
-    this.vuNeedleR += (vu.right - this.vuNeedleR) * 0.25;
-
+    this.vuNeedleL += (vu.left - this.vuNeedleL) * 0.28;
+    this.vuNeedleR += (vu.right - this.vuNeedleR) * 0.28;
     this.vuPeakL = Math.max(this.vuNeedleL, this.vuPeakL - 0.012);
     this.vuPeakR = Math.max(this.vuNeedleR, this.vuPeakR - 0.012);
 
-    const makeBar = (val, peak) => {
-      const fillLen = Math.round(val * meterWidth);
-      const peakIdx = Math.min(meterWidth - 1, Math.round(peak * meterWidth));
-      let str = '';
-      for (let i = 0; i < meterWidth; i++) {
-        if (i === peakIdx && peak > 0.1) {
-          str += '│';
-        } else if (i < fillLen) {
-          str += i > meterWidth * 0.8 ? '█' : '■';
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+    grid[midY].fill('═');
+
+    const fillL = Math.round(this.vuNeedleL * cols);
+    const peakIdxL = Math.min(cols - 1, Math.round(this.vuPeakL * cols));
+    for (let r = 0; r < midY; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (c === peakIdxL && this.vuPeakL > 0.08) {
+          grid[r][c] = '│';
+        } else if (c < fillL) {
+          grid[r][c] = c > cols * 0.8 ? '█' : (c > cols * 0.5 ? '■' : '░');
         } else {
-          str += '·';
+          grid[r][c] = '·';
         }
       }
-      return str;
-    };
-
-    const dbL = this.vuNeedleL > 0.01 ? (20 * Math.log10(this.vuNeedleL)).toFixed(0) : '-INF';
-    const dbR = this.vuNeedleR > 0.01 ? (20 * Math.log10(this.vuNeedleR)).toFixed(0) : '-INF';
-
-    if (mobile) {
-      return [
-        ` /========== STEREO VU METER ==========\\`,
-        ` |                                     |`,
-        ` | [L] -20  -10   -5   0  +3 [dB]      |`,
-        ` | [${makeBar(this.vuNeedleL, this.vuPeakL)}] ${dbL}dB |`,
-        ` |                                     |`,
-        ` | [R] -20  -10   -5   0  +3 [dB]      |`,
-        ` | [${makeBar(this.vuNeedleR, this.vuPeakR)}] ${dbR}dB |`,
-        ` |                                     |`,
-        ` | 0VU = +4dBu   BALLISTICS: ANSI C16  |`,
-        ` \\=====================================/`
-      ].join('\n');
     }
 
-    return [
-      ` /================= NOTHING OS STEREO VU =================\\`,
-      ` |                                                        |`,
-      ` |  CH-L  -20   -10    -5    -1     0    +2    +3 [dB]    |`,
-      ` |  [${makeBar(this.vuNeedleL, this.vuPeakL)}] ${dbL}dB       |`,
-      ` |                                                        |`,
-      ` |  CH-R  -20   -10    -5    -1     0    +2    +3 [dB]    |`,
-      ` |  [${makeBar(this.vuNeedleR, this.vuPeakR)}] ${dbR}dB       |`,
-      ` |                                                        |`,
-      ` |  INTEGRATION: 300ms   REF: 0VU = 4dBu   NOTHING OS     |`,
-      ` \\========================================================/`
-    ].join('\n');
+    const fillR = Math.round(this.vuNeedleR * cols);
+    const peakIdxR = Math.min(cols - 1, Math.round(this.vuPeakR * cols));
+    for (let r = midY + 1; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (c === peakIdxR && this.vuPeakR > 0.08) {
+          grid[r][c] = '│';
+        } else if (c < fillR) {
+          grid[r][c] = c > cols * 0.8 ? '█' : (c > cols * 0.5 ? '■' : '░');
+        } else {
+          grid[r][c] = '·';
+        }
+      }
+    }
+
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 5: Nothing Phone Glyph Matrix Interface
-   */
-  renderGlyphMatrix(isPlaying) {
-    const rawData = this.audioEngine.getFrequencyData();
-    let bass = 0, mid = 0, treble = 0;
-
-    for (let i = 0; i < 8; i++) bass += rawData[i] || 0;
-    for (let i = 8; i < 24; i++) mid += rawData[i] || 0;
-    for (let i = 24; i < 48; i++) treble += rawData[i] || 0;
-
-    bass = bass / (8 * 255);
-    mid = mid / (16 * 255);
-    treble = treble / (24 * 255);
-
-    if (!isPlaying) {
-      bass = 0.05 + 0.05 * Math.sin(this.frame * 0.05);
-      mid = 0.05 + 0.05 * Math.sin((this.frame * 0.05) + 1);
-      treble = 0.05 + 0.05 * Math.sin((this.frame * 0.05) + 2);
-    }
-
-    const glyphChar = (level, thresh) => (level > thresh ? '●' : '·');
-    const ring = (l) => (l > 0.35 ? '███' : '░░░');
-
-    if (this.isMobile()) {
-      return [
-        ` +------- NOTHING GLYPH MATRIX -------+`,
-        ` |                                    |`,
-        ` |      (CAMERA)       (SLASH)        |`,
-        ` |       .---.          \\ \\           |`,
-        ` |      | ${ring(treble)} |          \\ \\ [${Math.round(mid*100)}%]     |`,
-        ` |       '---'                        |`,
-        ` |                 .---.              |`,
-        ` |                /     \\             |`,
-        ` |               | B:${Math.round(bass*100)}% | [${glyphChar(bass,0.4)}]        |`,
-        ` |                \\     /             |`,
-        ` |                 '---'              |`,
-        ` |                   │ [${glyphChar(bass,0.5)}]            |`,
-        ` |                   ● (DOT)          |`,
-        ` +------------------------------------+`
-      ].join('\n');
-    }
-
-    return [
-      ` +-------------------- NOTHING GLYPH MATRIX LIGHTS --------------------+`,
-      ` |                                                                    |`,
-      ` |          (CAMERA GLYPH)          (DIAGONAL SLASH)                  |`,
-      ` |             .-----.                    \\ \\                         |`,
-      ` |            /  ${ring(treble)}  \\                    \\ \\ [MID: ${Math.round(mid*100)}%]            |`,
-      ` |           |   ${glyphChar(treble, 0.2)}   ${glyphChar(treble, 0.45)}   |                    \\ \\                        |`,
-      ` |             '-----'                                                |`,
-      ` |                     .--------------------.                         |`,
-      ` |                    /     (CENTER GLYPH)   \\                        |`,
-      ` |                   |   [BASS: ${Math.round(bass * 100)}%]   ${glyphChar(bass, 0.25)}  ${glyphChar(bass, 0.5)}   |                       |`,
-      ` |                    \\                      /                        |`,
-      ` |                     '--------------------'                         |`,
-      ` |                               │ ${glyphChar(bass, 0.4)}                          |`,
-      ` |                               ● (DOT)                              |`,
-      ` +--------------------------------------------------------------------+`
-    ].join('\n');
-  }
-
-  /**
-   * Mode 6: Matrix Cyber Rain
+   * Mode 3: Full-Area Matrix Cyber Rain (Zero Text)
    */
   renderMatrixRain(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
@@ -501,78 +299,73 @@ class AsciiVisualizer {
     bass = bass / (6 * 255);
 
     const mobile = this.isMobile();
-    const height = mobile ? 8 : 10;
-    const width = mobile ? 32 : 46;
-    const lines = [];
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
 
-    lines.push(` [·] MATRIX RAIN // BASS: ${Math.round(bass * 100)}%`);
-    lines.push(' ┌' + '─'.repeat(width + 2) + '┐');
+    if (!this.rainDrops || this.rainDrops.length !== cols) {
+      this.rainDrops = Array.from({ length: cols }, () => Math.floor(Math.random() * rows));
+    }
 
-    if (this.frame % (isPlaying && bass > 0.4 ? 1 : 2) === 0) {
-      for (let c = 0; c < width; c++) {
-        if (Math.random() < (isPlaying ? 0.3 + bass * 0.4 : 0.1)) {
-          this.rainDrops[c] = (this.rainDrops[c] + 1) % height;
+    if (this.frame % (isPlaying && bass > 0.35 ? 1 : 2) === 0) {
+      for (let c = 0; c < cols; c++) {
+        if (Math.random() < (isPlaying ? 0.3 + bass * 0.45 : 0.12)) {
+          this.rainDrops[c] = (this.rainDrops[c] + 1) % rows;
         }
       }
     }
 
-    for (let r = 0; r < height; r++) {
-      let line = ' │ ';
-      for (let c = 0; c < width; c++) {
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         const dropY = this.rainDrops[c];
         if (r === dropY) {
-          line += '●';
-        } else if (r === (dropY - 1 + height) % height) {
-          line += '•';
-        } else if (r === (dropY - 2 + height) % height) {
-          line += '·';
-        } else {
-          line += ' ';
+          grid[r][c] = '●';
+        } else if (r === (dropY - 1 + rows) % rows) {
+          grid[r][c] = '•';
+        } else if (r === (dropY - 2 + rows) % rows) {
+          grid[r][c] = '·';
+        } else if (r === (dropY - 3 + rows) % rows) {
+          grid[r][c] = ':';
         }
       }
-      line += ' │';
-      lines.push(line);
     }
 
-    lines.push(' └' + '─'.repeat(width + 2) + '┘');
-    lines.push('  NEURAL STREAM // 100% OFFLINE');
-    return lines.join('\n');
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 4: Cyber Tunnel 3D (Isometric Perspective Wireframe)
+   * Mode 4: Full-Area 3D Cyber Tunnel (Zero Text)
    */
   renderTunnel3D(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
     let bass = 0;
     for (let i = 0; i < 6; i++) bass += rawData[i] || 0;
     bass = bass / (6 * 255);
-    if (!isPlaying) bass = 0.12 + 0.08 * Math.sin(this.frame * 0.05);
+    if (!isPlaying) bass = 0.1 + 0.06 * Math.sin(this.frame * 0.05);
 
     const mobile = this.isMobile();
-    const rows = mobile ? 9 : 11;
-    const cols = mobile ? 34 : 48;
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
     const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
 
     const cx = Math.floor(cols / 2);
     const cy = Math.floor(rows / 2);
-
-    // 4 concentric tunnel rings
-    const ringCount = 4;
-    const pulseOffset = (this.frame * 0.2) % 1;
+    const ringCount = 5;
+    const pulseOffset = (this.frame * 0.16) % 1;
 
     for (let r = 0; r < ringCount; r++) {
       const depth = (r + pulseOffset) / ringCount;
-      const rx = Math.floor(depth * (cx - 2) * (1 + bass * 0.35));
-      const ry = Math.floor(depth * (cy - 1) * (1 + bass * 0.35));
+      const rx = Math.floor(depth * (cx - 2) * (1 + bass * 0.4));
+      const ry = Math.floor(depth * (cy - 1) * (1 + bass * 0.4));
+      const isOuter = (r === ringCount - 1);
 
       for (let x = -rx; x <= rx; x++) {
         const py1 = cy - ry;
         const py2 = cy + ry;
         const px = cx + x;
         if (px >= 0 && px < cols) {
-          if (py1 >= 0 && py1 < rows) grid[py1][px] = (r === ringCount - 1) ? '═' : '─';
-          if (py2 >= 0 && py2 < rows) grid[py2][px] = (r === ringCount - 1) ? '═' : '─';
+          if (py1 >= 0 && py1 < rows) grid[py1][px] = isOuter ? '═' : '─';
+          if (py2 >= 0 && py2 < rows) grid[py2][px] = isOuter ? '═' : '─';
         }
       }
 
@@ -581,53 +374,58 @@ class AsciiVisualizer {
         const px2 = cx + rx;
         const py = cy + y;
         if (py >= 0 && py < rows) {
-          if (px1 >= 0 && px1 < cols) grid[py][px1] = '│';
-          if (px2 >= 0 && px2 < cols) grid[py][px2] = '│';
+          if (px1 >= 0 && px1 < cols) grid[py][px1] = isOuter ? '║' : '│';
+          if (px2 >= 0 && px2 < cols) grid[py][px2] = isOuter ? '║' : '│';
         }
       }
     }
 
-    // Center pulsating core dot
-    if (cy >= 0 && cy < rows && cx >= 0 && cx < cols) {
-      grid[cy][cx] = bass > 0.4 ? '●' : '·';
+    for (let d = 1; d < Math.min(cx, cy); d++) {
+      const xL = cx - Math.round(d * 1.8);
+      const xR = cx + Math.round(d * 1.8);
+      const yT = cy - d;
+      const yB = cy + d;
+      if (yT >= 0 && xL >= 0 && grid[yT][xL] === ' ') grid[yT][xL] = '\\';
+      if (yT >= 0 && xR < cols && grid[yT][xR] === ' ') grid[yT][xR] = '/';
+      if (yB < rows && xL >= 0 && grid[yB][xL] === ' ') grid[yB][xL] = '/';
+      if (yB < rows && xR < cols && grid[yB][xR] === ' ') grid[yB][xR] = '\\';
     }
 
-    const lines = [];
-    lines.push(` [·] 3D CYBER TUNNEL // DEPTH: ${Math.round((1 + bass) * 100)}%`);
-    lines.push(' ┌' + '─'.repeat(cols) + '┐');
-    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
-    lines.push(' └' + '─'.repeat(cols) + '┘');
-    lines.push('  WARP ACCELERATION // 100% OFFLINE');
-    return lines.join('\n');
+    if (cy >= 0 && cy < rows && cx >= 0 && cx < cols) {
+      grid[cy][cx] = bass > 0.35 ? '●' : '·';
+    }
+
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 5: Radar Sonar 360 (Rotating Polar Scan Line)
+   * Mode 5: Full-Area Radar Sonar 360 (Zero Text)
    */
   renderRadarSonar(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
     const mobile = this.isMobile();
-    const rows = mobile ? 9 : 11;
-    const cols = mobile ? 34 : 46;
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
     const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
 
     const cx = Math.floor(cols / 2);
     const cy = Math.floor(rows / 2);
-    const sweepAngle = (this.frame * 0.08) % (Math.PI * 2);
+    const sweepAngle = (this.frame * 0.07) % (Math.PI * 2);
 
-    // Draw outer circular radar boundary
     const radX = cx - 3;
     const radY = cy - 1;
-    for (let a = 0; a < Math.PI * 2; a += 0.15) {
+    for (let a = 0; a < Math.PI * 2; a += 0.1) {
       const px = Math.round(cx + Math.cos(a) * radX);
       const py = Math.round(cy + Math.sin(a) * radY);
-      if (px >= 0 && px < cols && py >= 0 && py < rows) {
-        grid[py][px] = '·';
+      if (px >= 0 && px < cols && py >= 0 && py < rows) grid[py][px] = '·';
+      const pxMid = Math.round(cx + Math.cos(a) * (radX * 0.5));
+      const pyMid = Math.round(cy + Math.sin(a) * (radY * 0.5));
+      if (pxMid >= 0 && pxMid < cols && pyMid >= 0 && pyMid < rows && grid[pyMid][pxMid] === ' ') {
+        grid[pyMid][pxMid] = '·';
       }
     }
 
-    // Draw rotating sweep line
-    for (let d = 0; d <= 1; d += 0.08) {
+    for (let d = 0; d <= 1; d += 0.07) {
       const px = Math.round(cx + Math.cos(sweepAngle) * radX * d);
       const py = Math.round(cy + Math.sin(sweepAngle) * radY * d);
       if (px >= 0 && px < cols && py >= 0 && py < rows) {
@@ -635,34 +433,26 @@ class AsciiVisualizer {
       }
     }
 
-    // Audio reactive blips along angle
-    for (let b = 0; b < 12; b++) {
-      const val = (rawData[b * 3] || 0) / 255;
-      if (val > 0.3 || !isPlaying) {
-        const blipAngle = (b / 12) * Math.PI * 2;
-        const dist = 0.3 + (val * 0.6);
+    for (let b = 0; b < 16; b++) {
+      const val = (rawData[b * 2] || 0) / 255;
+      if (val > 0.28 || !isPlaying) {
+        const blipAngle = (b / 16) * Math.PI * 2;
+        const dist = 0.25 + (val * 0.68);
         const bx = Math.round(cx + Math.cos(blipAngle) * radX * dist);
         const by = Math.round(cy + Math.sin(blipAngle) * radY * dist);
         if (bx >= 0 && bx < cols && by >= 0 && by < rows) {
-          grid[by][bx] = isPlaying && val > 0.6 ? '●' : ':';
+          grid[by][bx] = isPlaying && val > 0.55 ? '●' : ':';
         }
       }
     }
 
-    // Center radar hub
     if (cy >= 0 && cy < rows && cx >= 0 && cx < cols) grid[cy][cx] = '+';
 
-    const lines = [];
-    lines.push(` [·] 360° SONAR RADAR // SWEEP: ${Math.round((sweepAngle / (Math.PI * 2)) * 360)}°`);
-    lines.push(' ┌' + '─'.repeat(cols) + '┐');
-    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
-    lines.push(' └' + '─'.repeat(cols) + '┘');
-    lines.push('  ACOUSTIC ECHOLOCATION ACTIVE');
-    return lines.join('\n');
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
-   * Mode 6: Particle Fountain
+   * Mode 6: Full-Area Particle Fountain (Zero Text)
    */
   renderParticleFountain(isPlaying) {
     const rawData = this.audioEngine.getFrequencyData();
@@ -671,52 +461,49 @@ class AsciiVisualizer {
     bass = bass / (4 * 255);
 
     const mobile = this.isMobile();
-    const rows = mobile ? 9 : 11;
-    const cols = mobile ? 34 : 46;
+    const rows = mobile ? 15 : 18;
+    const cols = mobile ? 42 : 64;
     const grid = Array.from({ length: rows }, () => new Array(cols).fill(' '));
+    const cx = Math.floor(cols / 2);
 
-    if (!this.particles) {
-      this.particles = Array.from({ length: 28 }, () => ({
-        x: Math.floor(cols / 2),
+    if (!this.particles || this.particles.length < 36) {
+      this.particles = Array.from({ length: 42 }, () => ({
+        x: cx,
         y: rows - 1,
-        vx: (Math.random() * 2 - 1) * 1.5,
-        vy: -Math.random() * 2 - 1,
-        life: 0
+        vx: (Math.random() * 2 - 1) * 2,
+        vy: -Math.random() * 2.5 - 1,
+        life: Math.floor(Math.random() * 12)
       }));
     }
-
-    const cx = Math.floor(cols / 2);
 
     this.particles.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.25; // gravity
+      p.vy += 0.22;
       p.life++;
 
       const px = Math.round(p.x);
       const py = Math.round(p.y);
 
       if (px >= 0 && px < cols && py >= 0 && py < rows) {
-        grid[py][px] = p.life < 3 ? '●' : (p.life < 6 ? '•' : '·');
+        grid[py][px] = p.life < 4 ? '●' : (p.life < 8 ? '•' : '·');
       }
 
-      if (p.y >= rows || p.life > 14 || p.x < 0 || p.x >= cols) {
-        p.x = cx + (Math.random() * 6 - 3);
+      if (p.y >= rows || p.life > 16 || p.x < 0 || p.x >= cols) {
+        p.x = cx + (Math.random() * 8 - 4);
         p.y = rows - 1;
-        const kick = isPlaying ? 1 + bass * 2 : 1;
-        p.vx = (Math.random() * 2 - 1) * (1.2 * kick);
-        p.vy = -(1.5 + Math.random() * 2.2) * (kick * 0.8);
+        const kick = isPlaying ? 1 + bass * 2.4 : 1;
+        p.vx = (Math.random() * 2 - 1) * (1.4 * kick);
+        p.vy = -(1.8 + Math.random() * 2.8) * (kick * 0.85);
         p.life = 0;
       }
     });
 
-    const lines = [];
-    lines.push(` [·] PARTICLE FOUNTAIN // KICK: ${Math.round(bass * 100)}%`);
-    lines.push(' ┌' + '─'.repeat(cols) + '┐');
-    grid.forEach(row => lines.push(' │' + row.join('') + '│'));
-    lines.push(' └' + '─'.repeat(cols) + '┘');
-    lines.push('  PHYSICS KINETICS // 60 FPS');
-    return lines.join('\n');
+    for (let c = 0; c < cols; c++) {
+      if (grid[rows - 1][c] === ' ') grid[rows - 1][c] = '─';
+    }
+
+    return grid.map(r => r.join('')).join('\n');
   }
 
   /**
