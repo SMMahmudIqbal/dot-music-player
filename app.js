@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     hapticStrength: localStorage.getItem('dot_haptic') || 'crisp',
     ambientMeshEnabled: localStorage.getItem('dot_mesh') !== 'false',
     accentColor: localStorage.getItem('dot_accent') || '#e52b2b',
+    accentPinned: false, // true = user manually picked a color; disables auto-extract
     crossfadeSec: parseInt(localStorage.getItem('dot_crossfade') || '0', 10),
     sleepTimerId: null,
     sleepTimerMinutes: 0,
@@ -335,6 +336,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           return (a.album || '').localeCompare(b.album || '');
         case 'size-desc':
           return (b.size || 0) - (a.size || 0);
+        case 'duration-desc':
+          return (b.duration || 0) - (a.duration || 0);
+        case 'duration-asc':
+          return (a.duration || 0) - (b.duration || 0);
+        case 'date-desc':
+          return (b.dateAdded || 0) - (a.dateAdded || 0);
+        case 'date-asc':
+          return (a.dateAdded || 0) - (b.dateAdded || 0);
+        case 'plays-desc':
+          return (b.playCount || 0) - (a.playCount || 0);
         default:
           return 0;
       }
@@ -651,6 +662,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
       el.albumArt.src = track.picture;
       el.albumArt.style.display = 'block';
+
+      // Upgrade #18 — Dynamic accent color from album art
+      el.albumArt.onload = () => {
+        extractDominantColor(el.albumArt);
+      };
     }
 
     if (el.btnPlayPause) {
@@ -658,11 +674,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.btnPlayPause.setAttribute('title', 'Pause (Space)');
     }
 
-    // Generate and render 64-bar dot-matrix waveform
-    state.currentWaveform = audioEngine.generateTrackWaveform(track.id, track.title || track.name, track.duration || 180);
-    if (el.waveformCanvas) {
-      AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, state.currentWaveform, 0, state.accentColor);
-    }
+    // Upgrade #6 — Waveform Cache: check IndexedDB first, generate+store on miss
+    (async () => {
+      const trackId = track.id;
+      let bars = await storage.getWaveform(trackId).catch(() => null);
+      if (!bars) {
+        bars = audioEngine.generateTrackWaveform(trackId, track.title || track.name, track.duration || 180);
+        storage.saveWaveform(trackId, bars).catch(() => {}); // async write, non-blocking
+      }
+      state.currentWaveform = bars;
+      if (el.waveformCanvas) {
+        AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, bars, 0, state.accentColor);
+      }
+    })();
 
     // Update Floating Mini-Player
     if (el.miniTrackTitle) el.miniTrackTitle.textContent = track.title || track.name;
@@ -684,7 +708,241 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el.lyricsCurrentLine) {
       el.lyricsCurrentLine.textContent = `▶ ${(track.title || track.name).toUpperCase()}`;
     }
+
+    // Upgrade #4 — Increment play count & record dateAdded on first play
+    if (!track.dateAdded) {
+      track.dateAdded = Date.now();
+    }
+    track.playCount = (track.playCount || 0) + 1;
+    storage.saveTrack(track).catch(() => {});
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // UPGRADE #18 — Dynamic Accent Color from Album Art
+  // Extracts dominant vibrant color using canvas pixel sampling
+  // ═══════════════════════════════════════════════════════════════
+  function extractDominantColor(imgEl) {
+    // Only run if user hasn't manually pinned a color
+    if (state.accentPinned) return;
+
+    try {
+      const canvas = document.createElement('canvas');
+      const SIZE = 40; // Sample at 40x40 for speed
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0, SIZE, SIZE);
+
+      const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+      let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+      // Find vibrant pixels: high saturation, mid-brightness (not too dark/light)
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+        if (a < 128) continue; // skip transparent
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const sat = max === 0 ? 0 : (max - min) / max;
+        const lum = (max + min) / 510;
+        // Only vibrant, not near-white, not near-black
+        if (sat > 0.35 && lum > 0.15 && lum < 0.85) {
+          // Weight by saturation for more vivid colors
+          rSum += r * sat;
+          gSum += g * sat;
+          bSum += b * sat;
+          count += sat;
+        }
+      }
+
+      if (count < 1) return; // No vibrant pixels found, keep current accent
+
+      const r = Math.round(rSum / count);
+      const g = Math.round(gSum / count);
+      const b = Math.round(bSum / count);
+
+      // Boost the dominant channel to make it more punchy
+      const maxCh = Math.max(r, g, b);
+      const boost = maxCh > 0 ? 220 / maxCh : 1;
+      const fr = Math.min(255, Math.round(r * boost));
+      const fg = Math.min(255, Math.round(g * boost));
+      const fb = Math.min(255, Math.round(b * boost));
+
+      const hex = `#${fr.toString(16).padStart(2,'0')}${fg.toString(16).padStart(2,'0')}${fb.toString(16).padStart(2,'0')}`;
+      const glow = `rgba(${fr},${fg},${fb},0.35)`;
+
+      // Smooth CSS transition between old and new color
+      document.documentElement.style.setProperty('--accent-red', hex);
+      document.documentElement.style.setProperty('--accent-red-glow', glow);
+      state.accentColor = hex;
+
+      // Re-render waveform in new color
+      if (state.currentWaveform && el.waveformCanvas) {
+        AsciiVisualizer.renderWaveformSeeker(el.waveformCanvas, state.currentWaveform, 0, hex);
+      }
+    } catch (e) {
+      // Canvas CORS block or tainted — silently ignore
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // UPGRADE #10 — Share Now-Playing Dot-Matrix Card
+  // Generates a branded PNG card and shares via Web Share API
+  // ═══════════════════════════════════════════════════════════════
+  async function shareNowPlayingCard() {
+    const track = state.library[state.currentTrackIndex];
+    if (!track) { showToast('PLAY A TRACK FIRST'); return; }
+
+    const W = 960, H = 480;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, W, H);
+
+    // Dot grid pattern
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    for (let x = 0; x < W; x += 16) {
+      for (let y = 0; y < H; y += 16) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Accent line left
+    ctx.fillStyle = state.accentColor;
+    ctx.fillRect(0, 0, 4, H);
+
+    // Album art (left block)
+    const ART_SIZE = 200;
+    const ART_X = 40, ART_Y = H / 2 - ART_SIZE / 2;
+    if (track.picture && el.albumArt && el.albumArt.complete && el.albumArt.naturalWidth > 0) {
+      try {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(ART_X, ART_Y, ART_SIZE, ART_SIZE, 8);
+        ctx.clip();
+        ctx.drawImage(el.albumArt, ART_X, ART_Y, ART_SIZE, ART_SIZE);
+        ctx.restore();
+        // Border
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(ART_X, ART_Y, ART_SIZE, ART_SIZE, 8);
+        ctx.stroke();
+      } catch (e) {
+        // CORS — draw placeholder
+        ctx.fillStyle = '#111';
+        ctx.fillRect(ART_X, ART_Y, ART_SIZE, ART_SIZE);
+      }
+    }
+
+    const TX = ART_X + ART_SIZE + 36;
+
+    // App badge
+    ctx.fillStyle = state.accentColor;
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText('DOT (PLAYER) · NOTHING OS', TX, ART_Y + 16);
+
+    // Title
+    ctx.fillStyle = '#f2f2f2';
+    ctx.font = 'bold 32px monospace';
+    const titleStr = (track.title || track.name || '').toUpperCase();
+    // Truncate long titles
+    let titleDraw = titleStr;
+    const maxW = W - TX - 40;
+    while (ctx.measureText(titleDraw).width > maxW && titleDraw.length > 4) {
+      titleDraw = titleDraw.slice(0, -2) + '…';
+    }
+    ctx.fillText(titleDraw, TX, ART_Y + 60);
+
+    // Artist
+    ctx.fillStyle = '#8e8e8e';
+    ctx.font = '18px monospace';
+    let artistStr = (track.artist || 'Unknown Artist').toUpperCase();
+    while (ctx.measureText(artistStr).width > maxW && artistStr.length > 4) {
+      artistStr = artistStr.slice(0, -2) + '…';
+    }
+    ctx.fillText(artistStr, TX, ART_Y + 92);
+
+    // Album
+    ctx.fillStyle = '#555';
+    ctx.font = '14px monospace';
+    let albumStr = (track.album || '').toUpperCase();
+    while (ctx.measureText(albumStr).width > maxW && albumStr.length > 4) {
+      albumStr = albumStr.slice(0, -2) + '…';
+    }
+    if (albumStr) ctx.fillText(albumStr, TX, ART_Y + 118);
+
+    // Waveform bar visualization
+    if (state.currentWaveform) {
+      const WF_X = TX, WF_Y = ART_Y + 150, WF_W = maxW, WF_H = 48;
+      const bars = state.currentWaveform;
+      const barW = WF_W / bars.length;
+      const playPct = audioEngine.audio.duration > 0
+        ? audioEngine.audio.currentTime / audioEngine.audio.duration
+        : 0;
+
+      bars.forEach((v, i) => {
+        const h = Math.max(4, v * WF_H * 0.95);
+        const played = i / bars.length < playPct;
+        ctx.fillStyle = played ? state.accentColor : 'rgba(255,255,255,0.15)';
+        ctx.fillRect(WF_X + i * barW, WF_Y + WF_H - h, Math.max(1, barW - 1.5), h);
+      });
+    }
+
+    // Format & duration tags
+    const durSec = track.duration || audioEngine.audio.duration || 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.roundRect(TX, ART_Y + 218, 80, 22, 4);
+    ctx.fill();
+    ctx.fillStyle = '#f2f2f2';
+    ctx.font = '11px monospace';
+    ctx.fillText((track.format || 'AUDIO').toUpperCase(), TX + 8, ART_Y + 234);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.roundRect(TX + 88, ART_Y + 218, 80, 22, 4);
+    ctx.fill();
+    ctx.fillStyle = '#f2f2f2';
+    ctx.fillText(formatTime(durSec), TX + 96, ART_Y + 234);
+
+    // Attribution footer
+    ctx.fillStyle = '#333';
+    ctx.font = '10px monospace';
+    ctx.fillText('Developed by S. M. Mahmud Iqbal', W - 260, H - 14);
+
+    // Export & share
+    canvas.toBlob(async (blob) => {
+      const file = new File([blob], 'dot-music-player-share.png', { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `${track.title || track.name} — Dot Music Player`,
+            text: `Listening to ${track.artist || 'Unknown'} on Dot (Player)`
+          });
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('SHARE FAILED');
+        }
+      } else {
+        // Fallback: download the card
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dot-now-playing.png';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('[·] CARD SAVED — SHARE IT!');
+      }
+    }, 'image/png');
+  }
+
+  window.shareNowPlayingCard = shareNowPlayingCard;
 
   function playNextTrack() {
     triggerHaptic(15);
@@ -1601,12 +1859,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.themeColorBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const theme = btn.dataset.color || 'red';
+        if (theme === 'auto') {
+          // AUTO mode — re-enable dynamic accent extraction
+          state.accentPinned = false;
+          if (el.themeColorLabel) el.themeColorLabel.textContent = 'AUTO (ALBUM ART)';
+          showToast('[·] ACCENT: AUTO FROM ALBUM ART');
+          // Trigger re-extract if a track is playing
+          if (el.albumArt && el.albumArt.complete && el.albumArt.naturalWidth > 0) {
+            extractDominantColor(el.albumArt);
+          }
+          return;
+        }
+        // Manual pin — disables auto-extract
+        state.accentPinned = true;
         const pal = THEME_PALETTES[theme] || THEME_PALETTES.red;
         document.documentElement.style.setProperty('--accent-red', pal.color);
         document.documentElement.style.setProperty('--accent-red-glow', pal.glow);
         state.accentColor = pal.color;
-        if (el.themeColorLabel) el.themeColorLabel.textContent = pal.name;
-        showToast(`THEME: ${pal.name}`);
+        if (el.themeColorLabel) el.themeColorLabel.textContent = pal.name + ' [PINNED]';
+        showToast(`THEME: ${pal.name} [PINNED]`);
       });
     });
   }

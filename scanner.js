@@ -7,7 +7,7 @@
 class StorageManager {
   constructor() {
     this.dbName = 'DotMusicPlayerDB';
-    this.dbVersion = 2;
+    this.dbVersion = 3;
     this.db = null;
   }
 
@@ -31,6 +31,10 @@ class StorageManager {
         }
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        // Upgrade #6 — Waveform PCM cache store (keyed by track id)
+        if (!db.objectStoreNames.contains('waveformCache')) {
+          db.createObjectStore('waveformCache', { keyPath: 'id' });
         }
       };
 
@@ -202,7 +206,40 @@ class StorageManager {
       req.onerror = () => resolve(defaultVal);
     });
   }
+
+  // ─── Upgrade #6: Waveform PCM Cache ───────────────────────────────────────
+  // Stores the decoded Float32Array waveform bars per track so subsequent loads
+  // skip the CPU-expensive decoding step entirely (instant draw from IndexedDB).
+
+  async saveWaveform(trackId, bars) {
+    if (!this.db) await this.init();
+    try {
+      const tx = this.db.transaction('waveformCache', 'readwrite');
+      tx.objectStore('waveformCache').put({ id: trackId, bars: Array.from(bars), ts: Date.now() });
+    } catch (e) { /* non-critical */ }
+  }
+
+  async getWaveform(trackId) {
+    if (!this.db) await this.init();
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db.transaction('waveformCache', 'readonly');
+        const req = tx.objectStore('waveformCache').get(trackId);
+        req.onsuccess = () => resolve(req.result ? req.result.bars : null);
+        req.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  async clearWaveformCache() {
+    if (!this.db) await this.init();
+    try {
+      const tx = this.db.transaction('waveformCache', 'readwrite');
+      tx.objectStore('waveformCache').clear();
+    } catch (e) { /* non-critical */ }
+  }
 }
+
 
 class AutoScanner {
   constructor(storageManager) {

@@ -139,8 +139,15 @@
         </div>
       </div>
 
-      <div class="footer-attribution-wrap">
-        Developed by S. M. Mahmud Iqbal
+      <div class="footer-attribution-wrap" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <span style="font-size: 9px; color: var(--text-muted);">Developed by S. M. Mahmud Iqbal</span>
+        <button class="btn-share-card" id="btn-share-card" title="Share Now-Playing Card" onclick="window.shareNowPlayingCard && window.shareNowPlayingCard()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          SHARE CARD
+        </button>
       </div>
     </section>
 
@@ -190,6 +197,11 @@
           <option value="artist-asc">SORT: ARTIST</option>
           <option value="album-asc">SORT: ALBUM</option>
           <option value="size-desc">SORT: SIZE (MAX)</option>
+          <option value="duration-desc">SORT: DURATION (LONGEST)</option>
+          <option value="duration-asc">SORT: DURATION (SHORTEST)</option>
+          <option value="date-desc">SORT: DATE ADDED (NEWEST)</option>
+          <option value="date-asc">SORT: DATE ADDED (OLDEST)</option>
+          <option value="plays-desc">SORT: MOST PLAYED</option>
         </select>
       </div>
 
@@ -550,8 +562,12 @@
           <button class="theme-color-btn" data-color="#10b981" data-name="MATRIX GREEN" style="background: #10b981;" title="Matrix Green"></button>
           <button class="theme-color-btn" data-color="#06b6d4" data-name="ELECTRIC BLUE" style="background: #06b6d4;" title="Electric Blue"></button>
           <button class="theme-color-btn" data-color="#ffffff" data-name="PURE WHITE" style="background: #ffffff;" title="Pure White"></button>
+          <button class="theme-color-btn" data-color="auto" data-name="AUTO" style="background: linear-gradient(135deg,#e52b2b,#f59e0b,#10b981,#06b6d4); border: 1.5px solid rgba(255,255,255,0.4);" title="Auto from Album Art">
+            <span style="font-size:7px;font-weight:700;color:#fff;text-shadow:0 0 4px #000;font-family:monospace;">AUTO</span>
+          </button>
         </div>
         <div id="theme-color-label" style="font-family: var(--font-ndot); font-size: 9px; color: var(--accent-red); margin-top: 4px;">SELECTED: NOTHING RED</div>
+        <div style="font-size: 8px; color: var(--text-muted); margin-top: 2px;">[AUTO] EXTRACTS FROM ALBUM ART · MANUAL PICK = PINNED</div>
       </div>
 
       <!-- Ambient Dot Mesh Toggle -->
