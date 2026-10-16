@@ -260,7 +260,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const validSongs = [];
     const invalidIds = [];
 
+    let livePort = 0;
+    if (window.AndroidApp && window.AndroidApp.getServerPort) {
+      try { livePort = window.AndroidApp.getServerPort(); } catch (e) {}
+    }
+
     tracks.forEach((t) => {
+      if (livePort > 0) {
+        if (t.mediaId) {
+          t.url = `http://127.0.0.1:${livePort}/audio?id=${t.mediaId}`;
+          t.picture = `http://127.0.0.1:${livePort}/art?id=${t.albumId || -1}&trackId=${t.mediaId}`;
+        } else if (t.url && t.url.includes('127.0.0.1:')) {
+          t.url = t.url.replace(/127\.0\.0\.1:\d+/, `127.0.0.1:${livePort}`);
+          if (t.picture && t.picture.includes('127.0.0.1:')) {
+            t.picture = t.picture.replace(/127\.0\.0\.1:\d+/, `127.0.0.1:${livePort}`);
+          }
+        }
+      }
+
       if (isSong(t)) {
         validSongs.push(t);
       } else {
@@ -471,7 +488,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       item.className = `track-item ${isActive ? 'active' : ''}`;
 
       const coverHtml = track.picture 
-        ? `<img class="track-cover-mini" src="${track.picture}" alt="Art"/>`
+        ? `<img class="track-cover-mini" src="${track.picture}" onerror="this.onerror=null;this.src='icon.webp';" alt="Art"/>`
         : `<img class="track-cover-mini" src="icon.webp" alt="Art"/>`;
 
       item.innerHTML = `
@@ -542,6 +559,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       file = window.memoryFiles.get(track.id);
     }
 
+    // Dynamically resolve active server port if running on Android
+    let livePort = 0;
+    if (window.AndroidApp && window.AndroidApp.getServerPort) {
+      try { livePort = window.AndroidApp.getServerPort(); } catch (e) {}
+    }
+
+    if (livePort > 0) {
+      if (track.mediaId) {
+        track.url = `http://127.0.0.1:${livePort}/audio?id=${track.mediaId}`;
+        track.picture = `http://127.0.0.1:${livePort}/art?id=${track.albumId || -1}&trackId=${track.mediaId}`;
+      } else if (track.url && track.url.includes('127.0.0.1:')) {
+        track.url = track.url.replace(/127\.0\.0\.1:\d+/, `127.0.0.1:${livePort}`);
+        if (track.picture && track.picture.includes('127.0.0.1:')) {
+          track.picture = track.picture.replace(/127\.0\.0\.1:\d+/, `127.0.0.1:${livePort}`);
+        }
+      }
+    }
+
     if (!file && !track.url && !track.contentUri) {
       showToast('FILE ACCESS NEEDED: CLICK [AUTOSCAN DEVICE] TO CONNECT');
       return;
@@ -602,6 +637,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (el.albumArt) {
+      el.albumArt.onerror = () => {
+        el.albumArt.onerror = null;
+        el.albumArt.src = 'icon.webp';
+      };
       el.albumArt.src = track.picture;
       el.albumArt.style.display = 'block';
     }
@@ -620,7 +659,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Update Floating Mini-Player
     if (el.miniTrackTitle) el.miniTrackTitle.textContent = track.title || track.name;
     if (el.miniTrackArtist) el.miniTrackArtist.textContent = `${track.artist || 'Unknown Artist'} // ${track.album || 'Local'}`;
-    if (el.miniAlbumArt) el.miniAlbumArt.src = track.picture;
+    if (el.miniAlbumArt) {
+      el.miniAlbumArt.onerror = () => {
+        el.miniAlbumArt.onerror = null;
+        el.miniAlbumArt.src = 'icon.webp';
+      };
+      el.miniAlbumArt.src = track.picture;
+    }
     if (el.miniBtnPlay) el.miniBtnPlay.innerHTML = SVG_ICONS.pause;
 
     const activePanel = document.querySelector('.view-panel.active');

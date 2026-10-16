@@ -126,6 +126,9 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(false);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
 
         mWebView.setBackgroundColor(0xFF050505);
         mWebView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
@@ -501,6 +504,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public int getServerPort() {
+            return mServerPort;
+        }
+
+        @JavascriptInterface
         public void scanDeviceAudio() {
             runOnUiThread(() -> checkPermissionsAndScan());
         }
@@ -621,7 +629,11 @@ public class MainActivity extends Activity {
         private boolean mIsRunning = false;
 
         public int start() throws Exception {
-            mServerSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            try {
+                mServerSocket = new ServerSocket(28492, 50, InetAddress.getByName("127.0.0.1"));
+            } catch (Exception e) {
+                mServerSocket = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
+            }
             mIsRunning = true;
             new Thread(this::listen).start();
             return mServerSocket.getLocalPort();
@@ -656,6 +668,7 @@ public class MainActivity extends Activity {
                     return;
                 }
 
+                String method = parts[0].toUpperCase();
                 String path = parts[1];
                 String rangeHeader = null;
                 String line;
@@ -663,6 +676,20 @@ public class MainActivity extends Activity {
                     if (line.toLowerCase().startsWith("range:")) {
                         rangeHeader = line.substring(6).trim();
                     }
+                }
+
+                // Handle CORS preflight OPTIONS request
+                if (method.equals("OPTIONS")) {
+                    PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                    pw.print("HTTP/1.1 204 No Content\r\n");
+                    pw.print("Access-Control-Allow-Origin: *\r\n");
+                    pw.print("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n");
+                    pw.print("Access-Control-Allow-Headers: Range, Content-Type, Accept, Origin\r\n");
+                    pw.print("Access-Control-Max-Age: 86400\r\n");
+                    pw.print("Connection: close\r\n\r\n");
+                    pw.flush();
+                    socket.close();
+                    return;
                 }
 
                 if (path.startsWith("/audio?")) {
@@ -676,11 +703,44 @@ public class MainActivity extends Activity {
 
                     if (mediaId != -1) {
                         Uri contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaId);
-                        ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(contentUri, "r");
+                        ParcelFileDescriptor pfd = null;
+                        try {
+                            pfd = getContentResolver().openFileDescriptor(contentUri, "r");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
                         if (pfd != null) {
                             long fileLength = pfd.getStatSize();
                             String mimeType = getContentResolver().getType(contentUri);
                             if (mimeType == null) mimeType = "audio/mpeg";
+
+                            if (fileLength <= 0) {
+                                InputStream is = getContentResolver().openInputStream(contentUri);
+                                if (is != null) {
+                                    PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                                    pw.print("HTTP/1.1 200 OK\r\n");
+                                    pw.print("Content-Type: " + mimeType + "\r\n");
+                                    pw.print("Access-Control-Allow-Origin: *\r\n");
+                                    pw.print("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n");
+                                    pw.print("Access-Control-Allow-Headers: Range, Content-Type, Accept\r\n");
+                                    pw.print("Connection: close\r\n\r\n");
+                                    pw.flush();
+
+                                    if (!method.equals("HEAD")) {
+                                        java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 65536);
+                                        byte[] buffer = new byte[65536];
+                                        int r;
+                                        while ((r = is.read(buffer)) != -1) {
+                                            bos.write(buffer, 0, r);
+                                        }
+                                        bos.flush();
+                                    }
+                                    is.close();
+                                    pfd.close();
+                                    return;
+                                }
+                            }
 
                             long start = 0;
                             long end = fileLength - 1;
@@ -711,28 +771,41 @@ public class MainActivity extends Activity {
                             pw.print("Content-Length: " + contentLength + "\r\n");
                             pw.print("Accept-Ranges: bytes\r\n");
                             pw.print("Access-Control-Allow-Origin: *\r\n");
+                            pw.print("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n");
+                            pw.print("Access-Control-Allow-Headers: Range, Content-Type, Accept\r\n");
+                            pw.print("Access-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n");
                             pw.print("Connection: close\r\n\r\n");
                             pw.flush();
 
-                            FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
-                            if (start > 0) {
-                                fis.getChannel().position(start);
-                            }
+                            if (!method.equals("HEAD")) {
+                                FileInputStream fis = new FileInputStream(pfd.getFileDescriptor());
+                                if (start > 0) {
+                                    fis.getChannel().position(start);
+                                }
 
-                            java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 65536);
-                            byte[] buffer = new byte[65536];
-                            long remaining = contentLength;
-                            while (remaining > 0) {
-                                int toRead = (int) Math.min(buffer.length, remaining);
-                                int read = fis.read(buffer, 0, toRead);
-                                if (read <= 0) break;
-                                bos.write(buffer, 0, read);
-                                remaining -= read;
+                                java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(out, 65536);
+                                byte[] buffer = new byte[65536];
+                                long remaining = contentLength;
+                                while (remaining > 0) {
+                                    int toRead = (int) Math.min(buffer.length, remaining);
+                                    int read = fis.read(buffer, 0, toRead);
+                                    if (read <= 0) break;
+                                    bos.write(buffer, 0, read);
+                                    remaining -= read;
+                                }
+                                bos.flush();
+                                fis.close();
                             }
-                            bos.flush();
-                            fis.close();
                             pfd.close();
+                        } else {
+                            PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                            pw.print("HTTP/1.1 404 Not Found\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+                            pw.flush();
                         }
+                    } else {
+                        PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
+                        pw.print("HTTP/1.1 400 Bad Request\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+                        pw.flush();
                     }
                 } else if (path.startsWith("/art?")) {
                     long albumId = -1;
@@ -787,13 +860,16 @@ public class MainActivity extends Activity {
                         pw.print("Content-Type: image/jpeg\r\n");
                         pw.print("Content-Length: " + imgBytes.length + "\r\n");
                         pw.print("Access-Control-Allow-Origin: *\r\n");
+                        pw.print("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n");
                         pw.print("Connection: close\r\n\r\n");
                         pw.flush();
-                        out.write(imgBytes);
-                        out.flush();
+                        if (!method.equals("HEAD")) {
+                            out.write(imgBytes);
+                            out.flush();
+                        }
                     } else {
                         PrintWriter pw = new PrintWriter(new OutputStreamWriter(out, "UTF-8"));
-                        pw.print("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
+                        pw.print("HTTP/1.1 404 Not Found\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
                         pw.flush();
                     }
                 }
