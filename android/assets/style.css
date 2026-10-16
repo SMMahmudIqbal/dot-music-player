@@ -75,26 +75,6 @@ body {
   transition: background 0.55s ease, color 0.55s ease, border-color 0.55s ease, box-shadow 0.55s ease;
 }
 
-/* ── Upgrade #10: Share card button ── */
-.btn-share-card {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  padding: 5px 10px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.5px;
-  font-family: var(--font-mono);
-  transition: border-color 0.2s, color 0.2s;
-}
-.btn-share-card:hover, .btn-share-card:active {
-  border-color: var(--accent-red);
-  color: var(--accent-red);
-}
 
 /* Scrollbars */
 ::-webkit-scrollbar {
