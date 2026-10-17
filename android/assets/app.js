@@ -460,16 +460,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       state.playQueue.forEach((track, qIdx) => {
         const item = document.createElement('div');
         item.className = 'track-item';
-        item.innerHTML = `
-          <div class="track-item-left">
-            <span style="font-family: var(--font-ndot); font-size: 10px; color: var(--accent-red); width: 16px;">${qIdx + 1}</span>
-            <div class="track-meta-wrap">
-              <div class="track-title">${track.title || track.name}</div>
-              <div class="track-artist">${track.artist || 'Unknown'} // ${track.album || 'Local'}</div>
-            </div>
-          </div>
-          <button class="btn" style="padding: 3px 8px; font-size: 9px;">PLAY</button>
-        `;
+        const left = document.createElement('div');
+        left.className = 'track-item-left';
+        const position = document.createElement('span');
+        position.style.cssText = 'font-family: var(--font-ndot); font-size: 10px; color: var(--accent-red); width: 16px;';
+        position.textContent = String(qIdx + 1);
+        const metadata = document.createElement('div');
+        metadata.className = 'track-meta-wrap';
+        const title = document.createElement('div');
+        title.className = 'track-title';
+        title.textContent = String(track.title || track.name || '');
+        const artist = document.createElement('div');
+        artist.className = 'track-artist';
+        artist.textContent = `${track.artist || 'Unknown'} // ${track.album || 'Local'}`;
+        metadata.append(title, artist);
+        left.append(position, metadata);
+        const playButton = document.createElement('button');
+        playButton.className = 'btn';
+        playButton.type = 'button';
+        playButton.style.cssText = 'padding: 3px 8px; font-size: 9px;';
+        playButton.textContent = 'PLAY';
+        item.append(left, playButton);
         item.addEventListener('click', () => {
           state.playQueue.splice(qIdx, 1);
           playTrackById(track.id);
@@ -498,28 +509,62 @@ document.addEventListener('DOMContentLoaded', async () => {
       const item = document.createElement('div');
       item.className = `track-item ${isActive ? 'active' : ''}`;
 
-      const coverHtml = track.picture 
-        ? `<img class="track-cover-mini" src="${track.picture}" onerror="this.onerror=null;this.src='icon.webp';" alt="Art"/>`
-        : `<img class="track-cover-mini" src="icon.webp" alt="Art"/>`;
+      const left = document.createElement('div');
+      left.className = 'track-item-left';
+      const cover = document.createElement('img');
+      cover.className = 'track-cover-mini';
+      cover.alt = 'Art';
+      const picture = typeof track.picture === 'string' ? track.picture : '';
+      const embeddedArtwork = /^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(picture);
+      let nativeArtworkUrl = null;
+      try {
+        const pictureUrl = new URL(picture, window.location.href);
+        const bridgePort = window.AndroidApp && window.AndroidApp.getServerPort
+          ? String(window.AndroidApp.getServerPort()) : '';
+        if (bridgePort && pictureUrl.protocol === 'http:' && pictureUrl.hostname === '127.0.0.1'
+          && pictureUrl.port === bridgePort && pictureUrl.pathname === '/art') {
+          nativeArtworkUrl = pictureUrl.href;
+        }
+      } catch (e) { /* Invalid artwork URL: use the built-in icon. */ }
+      cover.src = embeddedArtwork ? picture : (nativeArtworkUrl || 'icon.webp');
+      cover.onerror = () => { cover.onerror = null; cover.src = 'icon.webp'; };
 
-      item.innerHTML = `
-        <div class="track-item-left">
-          ${coverHtml}
-          <div class="track-meta-wrap">
-            <div class="track-title">${track.title || track.name}${isActive ? '<span class="now-playing-bars"><span></span><span></span><span></span></span>' : ''}</div>
-            <div class="track-artist">${track.artist || 'Unknown'} // ${track.album || 'Local'}</div>
-          </div>
-        </div>
-        <div class="track-meta-right">
-          <span>${formatBytes(track.size)}</span>
-          <button class="track-action-btn queue-add-btn" data-id="${track.id}" title="Add to Up Next Queue">
-            ${SVG_ICONS.queueAdd}
-          </button>
-          <button class="fav-star-btn ${track.favorite ? 'active' : ''}" data-id="${track.id}" aria-label="Toggle favorite">
-            ${SVG_ICONS.star}
-          </button>
-        </div>
-      `;
+      const metadata = document.createElement('div');
+      metadata.className = 'track-meta-wrap';
+      const title = document.createElement('div');
+      title.className = 'track-title';
+      title.textContent = String(track.title || track.name || '');
+      if (isActive) {
+        const nowPlaying = document.createElement('span');
+        nowPlaying.className = 'now-playing-bars';
+        nowPlaying.setAttribute('aria-label', 'Now playing');
+        for (let i = 0; i < 3; i += 1) nowPlaying.appendChild(document.createElement('span'));
+        title.appendChild(nowPlaying);
+      }
+      const artist = document.createElement('div');
+      artist.className = 'track-artist';
+      artist.textContent = `${track.artist || 'Unknown'} // ${track.album || 'Local'}`;
+      metadata.append(title, artist);
+      left.append(cover, metadata);
+
+      const details = document.createElement('div');
+      details.className = 'track-meta-right';
+      const size = document.createElement('span');
+      size.textContent = String(formatBytes(track.size));
+      const queueButton = document.createElement('button');
+      queueButton.className = 'track-action-btn queue-add-btn';
+      queueButton.type = 'button';
+      queueButton.dataset.id = String(track.id);
+      queueButton.title = 'Add to Up Next Queue';
+      queueButton.innerHTML = SVG_ICONS.queueAdd;
+      const favoriteButton = document.createElement('button');
+      favoriteButton.className = `fav-star-btn ${track.favorite ? 'active' : ''}`;
+      favoriteButton.type = 'button';
+      favoriteButton.dataset.id = String(track.id);
+      favoriteButton.setAttribute('aria-label', 'Toggle favorite');
+      favoriteButton.innerHTML = SVG_ICONS.star;
+      details.append(size, queueButton, favoriteButton);
+      item.append(left, details);
 
       item.addEventListener('click', (e) => {
         if (e.target.closest('.queue-add-btn')) {
@@ -2099,4 +2144,3 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initial load
   await reloadLibrary();
 });
-

@@ -1,6 +1,9 @@
 # Build and temporary files
 android/bin/
 android/debug.keystore
+android/release.keystore
+*.keystore
+*.jks
 *.idsig
 *.log
 .DS_Store

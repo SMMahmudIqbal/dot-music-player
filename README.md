@@ -45,6 +45,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 Installs `DotMusicPlayer.apk` onto any Android device (Android 7.0+ / API 24+).
 
+Release signing now requires `DOTMUSIC_KEYSTORE_PATH`, `DOTMUSIC_STORE_PASSWORD`, `DOTMUSIC_KEY_ALIAS`, and `DOTMUSIC_KEY_PASSWORD` from a protected environment. The keystore must be stored outside this repository; the build intentionally fails if any signing input is missing. Replacing the published signing identity can prevent existing installs from receiving updates, so use only a distribution-compatible key.
+
 ---
 
 ## License & Attribution
